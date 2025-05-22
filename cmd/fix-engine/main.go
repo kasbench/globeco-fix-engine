@@ -116,6 +116,46 @@ func main() {
 	execAPI := api.NewExecutionAPI(repo)
 	execAPI.RegisterRoutes(r)
 
+	// Serve OpenAPI spec
+	r.Get("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		http.ServeFile(w, r, "documentation/fix-engine-openapi.json")
+	})
+
+	// Serve Swagger UI
+	r.Get("/swagger-ui/*", func(w http.ResponseWriter, r *http.Request) {
+		// Redirect root /swagger-ui/ to index.html
+		if r.URL.Path == "/swagger-ui/" || r.URL.Path == "/swagger-ui" {
+			http.Redirect(w, r, "/swagger-ui/index.html", http.StatusFound)
+			return
+		}
+		if r.URL.Path == "/swagger-ui/index.html" {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.12/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.12/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = function() {
+      window.ui = SwaggerUIBundle({
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+      });
+    };
+  </script>
+</body>
+</html>`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+
 	// Register metrics and health endpoints
 	r.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		config.RegisterMetricsHandler(http.DefaultServeMux)

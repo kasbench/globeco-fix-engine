@@ -15,3 +15,9 @@
 # Request: Multi-architecture Docker build CI
 - Added .github/workflows/docker-multiarch.yml for GitHub Actions to build and push multi-arch (amd64, arm64) Docker images to Docker Hub on push to main and manual dispatch. Uses buildx, QEMU, and DockerHub secrets.
 
+# Request: Expose OpenAPI schema and Swagger UI
+- Added documentation/fix-engine-openapi.json with OpenAPI 3.0 spec for the fix-engine API.
+- Served the OpenAPI spec at /openapi.json.
+- Served Swagger UI at /swagger-ui/ using CDN assets, loading the OpenAPI spec.
+- Updated README with API documentation endpoints.
+
