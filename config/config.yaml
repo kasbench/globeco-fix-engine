@@ -1,0 +1,25 @@
+AppEnv: development
+HTTPPort: 8085
+
+Kafka:
+  Brokers:
+    - globeco-execution-service-kafka:9092
+  OrdersTopic: orders
+  FillsTopic: fills
+  ConsumerGroup: fix_engine
+
+Postgres:
+  Host: globeco-fix-engine-postgresql
+  Port: 5437
+  User: postgres
+  Password: ""
+  DBName: postgres
+  SSLMode: disable
+
+SecuritySvc:
+  Host: globeco-security-service
+  Port: 8000
+
+PricingSvc:
+  Host: globeco-pricing-service
+  Port: 8083 
