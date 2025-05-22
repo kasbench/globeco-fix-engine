@@ -1,21 +1,37 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kasbench/globeco-fix-engine/internal/api"
 	"github.com/kasbench/globeco-fix-engine/internal/config"
+	"github.com/kasbench/globeco-fix-engine/internal/kafka"
 	"github.com/kasbench/globeco-fix-engine/internal/middleware"
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
+	"github.com/kasbench/globeco-fix-engine/internal/service"
 	"go.opentelemetry.io/otel"
 )
 
 func main() {
+	// Root context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Listen for SIGINT/SIGTERM
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -46,6 +62,43 @@ func main() {
 	// Set up repository
 	repo := repository.NewExecutionRepository(db)
 
+	// Set up Kafka
+	if err := kafka.CreateFillsTopicIfNotExists(ctx, cfg.Kafka); err != nil {
+		logger.Fatal("failed to ensure fills topic exists", zap.Error(err))
+	}
+	ordersConsumer := kafka.NewOrdersConsumer(cfg.Kafka, cfg.Kafka.ConsumerGroup)
+	fillsProducer := kafka.NewFillsProducer(cfg.Kafka)
+	defer ordersConsumer.Close()
+	defer fillsProducer.Close()
+
+	// Set up external service clients
+	securityClient := service.NewSecurityServiceClient(cfg.SecuritySvc)
+	pricingClient := service.NewPricingServiceClient(cfg.PricingSvc)
+
+	// Set up ExecutionService
+	execService := service.NewExecutionService(
+		repo,
+		db,
+		ordersConsumer,
+		fillsProducer,
+		securityClient,
+		pricingClient,
+	)
+
+	// Start order intake and fill processing loops in background goroutines
+	var wg sync.WaitGroup
+	orderIntakeCtx, orderIntakeCancel := context.WithCancel(ctx)
+	fillProcessingCtx, fillProcessingCancel := context.WithCancel(ctx)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		execService.StartOrderIntakeLoop(orderIntakeCtx)
+	}()
+	go func() {
+		defer wg.Done()
+		execService.StartFillProcessingLoop(fillProcessingCtx)
+	}()
+
 	// Set up chi router
 	r := chi.NewRouter()
 
@@ -74,8 +127,35 @@ func main() {
 	})
 
 	addr := ":" + fmt.Sprint(cfg.HTTPPort)
-	logger.Info("HTTP server listening", zap.String("addr", addr))
-	if err := http.ListenAndServe(addr, r); err != nil {
-		logger.Fatal("server exited", zap.Error(err))
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: r,
 	}
+
+	// Start HTTP server in a goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		logger.Info("HTTP server listening", zap.String("addr", addr))
+		serverErr <- httpServer.ListenAndServe()
+	}()
+
+	// Wait for signal or server error
+	select {
+	case sig := <-sigs:
+		logger.Info("received signal, shutting down", zap.String("signal", sig.String()))
+	case err := <-serverErr:
+		logger.Error("server exited", zap.Error(err))
+	}
+
+	// Initiate graceful shutdown
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("HTTP server shutdown error", zap.Error(err))
+	}
+	// Stop order intake and fill processing loops and wait for them to finish
+	orderIntakeCancel()
+	fillProcessingCancel()
+	wg.Wait()
+	logger.Info("Shutdown complete")
 }

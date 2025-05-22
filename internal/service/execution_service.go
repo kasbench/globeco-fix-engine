@@ -194,7 +194,12 @@ func calculateFillQuantity(quantityRemaining float64) float64 {
 	}
 	p := rand.Float64()
 	if p < 0.10 {
-		return quantityRemaining // 10% probability: full fill
+		fill := quantityRemaining
+		fill = float64(int64(fill)) // round to whole units
+		if fill > 10000 {
+			fill = 10000
+		}
+		return fill
 	}
 	if p < 0.15 {
 		return 0 // 5% probability: no fill
@@ -206,8 +211,9 @@ func calculateFillQuantity(quantityRemaining float64) float64 {
 	choices := []float64{0.8, 0.6, 4.0, 0.2, 0.1}
 	idx := rand.Intn(5)
 	fill := quantityRemaining * choices[idx]
+	fill = float64(int64(fill)) // round to whole units
 	if fill > 10000 {
 		fill = 10000
 	}
-	return float64(int64(fill)) // round to whole units
+	return fill
 }

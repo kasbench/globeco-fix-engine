@@ -93,7 +93,7 @@ func (r *executionRepository) PollNextForFill(ctx context.Context) (*Execution, 
 	var exec Execution
 	query := `SELECT * FROM execution
 	WHERE next_fill_timestamp <= NOW()
-	  AND is_open = B'1'
+	  AND is_open
 	FOR UPDATE SKIP LOCKED
 	LIMIT 1`
 	tx, err := r.db.BeginTxx(ctx, nil)
