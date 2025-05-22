@@ -22,3 +22,29 @@ The database schema is defined in [`fix-engine.sql`](./fix-engine.sql).
 
 ## Status
 This project is under active development.
+
+## Kubernetes & Docker Deployment
+
+### Docker
+- Multi-architecture Dockerfile (Linux/amd64 and Linux/arm64) in project root
+- Uses distroless base for minimal image size
+- Exposes port 8080
+
+### Kubernetes
+- See `k8s/` directory for manifests
+- Deployment, Service, and HorizontalPodAutoscaler for `globeco-fix-engine` in the `globeco` namespace
+- Health checks: `/healthz` (liveness/startup), `/readyz` (readiness)
+- Liveness probe timeout: 240s
+- Resource limits: 100m CPU, 200Mi memory per pod
+- Scales from 1 to 100 replicas
+
+#### Usage
+1. Build and push your multi-arch Docker image
+2. Update the image in `k8s/deployment.yaml`
+3. Apply manifests:
+   ```sh
+   kubectl apply -f k8s/deployment.yaml
+   kubectl apply -f k8s/service.yaml
+   ```
+
+See `k8s/README.md` for more details.

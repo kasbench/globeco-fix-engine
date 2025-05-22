@@ -5,3 +5,10 @@
 - Resolved missing dependency by running `go get github.com/testcontainers/testcontainers-go/modules/kafka@latest` and `go mod tidy`.
 - Verified the test passes with `go test -v ./internal/kafka/...`.
 
+# Request: Kubernetes and Docker deployment manifests
+- Created k8s/deployment.yaml with Deployment and HPA for globeco-fix-engine in the globeco namespace, including liveness (240s timeout), readiness, and startup probes, resource limits (100m CPU, 200Mi memory), and scaling (1-100 replicas).
+- Created k8s/service.yaml for ClusterIP service on port 8080.
+- Added k8s/README.md with usage and manifest details.
+- Added a multi-architecture Dockerfile (amd64/arm64, distroless, non-root, port 8080).
+- Updated project README with Kubernetes and Docker deployment instructions.
+
