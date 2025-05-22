@@ -10,7 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kasbench/globeco-fix-engine/internal/api"
 	"github.com/kasbench/globeco-fix-engine/internal/config"
+	"github.com/kasbench/globeco-fix-engine/internal/middleware"
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
+	"go.opentelemetry.io/otel"
 )
 
 func main() {
@@ -46,6 +48,16 @@ func main() {
 
 	// Set up chi router
 	r := chi.NewRouter()
+
+	// Add CORS middleware (should be first)
+	r.Use(middleware.CORSMiddleware)
+
+	// Add logging middleware
+	r.Use(middleware.LoggingMiddleware(logger))
+
+	// Add tracing middleware (using global tracer for now)
+	tracer := otel.Tracer("globeco-fix-engine")
+	r.Use(middleware.TracingMiddleware(tracer))
 
 	// Register API routes
 	execAPI := api.NewExecutionAPI(repo)
