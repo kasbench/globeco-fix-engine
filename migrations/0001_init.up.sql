@@ -2,7 +2,7 @@
 CREATE TABLE public.execution (
 	id serial NOT NULL,
 	order_id integer NOT NULL,
-	is_open bit NOT NULL DEFAULT 1::BIT,
+	is_open boolean NOT NULL DEFAULT true,
 	execution_status varchar(20) NOT NULL,
 	trade_type varchar(10) NOT NULL,
 	destination varchar(20) NOT NULL,
