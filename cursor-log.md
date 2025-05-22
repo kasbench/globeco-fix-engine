@@ -12,3 +12,6 @@
 - Added a multi-architecture Dockerfile (amd64/arm64, distroless, non-root, port 8080).
 - Updated project README with Kubernetes and Docker deployment instructions.
 
+# Request: Multi-architecture Docker build CI
+- Added .github/workflows/docker-multiarch.yml for GitHub Actions to build and push multi-arch (amd64, arm64) Docker images to Docker Hub on push to main and manual dispatch. Uses buildx, QEMU, and DockerHub secrets.
+
