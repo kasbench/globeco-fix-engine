@@ -25,6 +25,12 @@ func main() {
 	defer logger.Sync()
 	logger.Info("FIX Engine starting up", zap.String("env", cfg.AppEnv))
 
+	// Run database migrations
+	if err := config.RunMigrations(cfg.Postgres); err != nil {
+		logger.Fatal("database migration failed", zap.Error(err))
+	}
+	logger.Info("Database migrations applied successfully")
+
 	// Set up HTTP server and metrics
 	mux := http.NewServeMux()
 	config.RegisterMetricsHandler(mux)
