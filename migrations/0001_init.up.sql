@@ -1,7 +1,7 @@
 -- Create execution table
 CREATE TABLE public.execution (
 	id serial NOT NULL,
-	order_id integer NOT NULL,
+	execution_service_id integer NOT NULL,
 	is_open boolean NOT NULL DEFAULT true,
 	execution_status varchar(20) NOT NULL,
 	trade_type varchar(10) NOT NULL,
@@ -17,13 +17,14 @@ CREATE TABLE public.execution (
 	next_fill_timestamp timestamptz,
 	number_of_fills smallint NOT NULL DEFAULT 0,
 	total_amount decimal(18,8) NOT NULL DEFAULT 0,
+	trade_service_execution_id integer NULL,
 	version integer NOT NULL DEFAULT 1,
 	CONSTRAINT execution_pk PRIMARY KEY (id)
 );
 
 -- Create unique index on order_id
-CREATE UNIQUE INDEX execution_order_id_ndx ON public.execution
-USING btree (order_id);
+CREATE UNIQUE INDEX execution_service_id_ndx ON public.execution
+USING btree (execution_service_id);
 
 -- Create index on next_fill_timestamp
 CREATE INDEX execution_next_fill_ndx ON public.execution
