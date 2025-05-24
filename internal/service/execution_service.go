@@ -56,7 +56,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 			continue
 		}
 
-		var postDTO domain.ExecutionPostDTO
+		var postDTO domain.ExecutionDTO
 		if err := json.Unmarshal(m.Value, &postDTO); err != nil {
 			log.Printf("error unmarshalling order: %v", err)
 			continue
@@ -70,23 +70,23 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 
 		now := time.Now().UTC()
 		exec := &repository.Execution{
-			OrderID:           postDTO.Version, // This should be the order ID from the message if present
-			IsOpen:            true,
-			ExecutionStatus:   "WORK",
-			TradeType:         postDTO.TradeType,
-			Destination:       postDTO.Destination,
-			SecurityID:        postDTO.SecurityID,
-			Ticker:            ticker,
-			QuantityOrdered:   postDTO.Quantity,
-			LimitPrice:        sqlNullFloat64(postDTO.LimitPrice),
-			ReceivedTimestamp: now,
-			SentTimestamp:     now,
-			LastFillTimestamp: sqlNullTime(nil),
-			QuantityFilled:    0,
-			NextFillTimestamp: sqlNullTime(&now),
-			NumberOfFills:     0,
-			TotalAmount:       0,
-			Version:           postDTO.Version,
+			ExecutionServiceID: postDTO.ExecutionServiceID, // This should be the order ID from the message if present
+			IsOpen:             true,
+			ExecutionStatus:    "WORK",
+			TradeType:          postDTO.TradeType,
+			Destination:        postDTO.Destination,
+			SecurityID:         postDTO.SecurityID,
+			Ticker:             ticker,
+			QuantityOrdered:    postDTO.QuantityOrdered,
+			LimitPrice:         sqlNullFloat64(postDTO.LimitPrice),
+			ReceivedTimestamp:  now,
+			SentTimestamp:      now,
+			LastFillTimestamp:  sqlNullTime(nil),
+			QuantityFilled:     0,
+			NextFillTimestamp:  sqlNullTime(&now),
+			NumberOfFills:      0,
+			TotalAmount:        0,
+			Version:            postDTO.Version,
 		}
 
 		if err := s.Repo.Create(ctx, exec); err != nil {
@@ -94,7 +94,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 			continue
 		}
 		// Kafka-go commits automatically when using ReadMessage
-		log.Printf("order ingested: order_id=%d ticker=%s", exec.OrderID, exec.Ticker)
+		log.Printf("order ingested: order_id=%d ticker=%s", exec.ExecutionServiceID, exec.Ticker)
 	}
 }
 
@@ -183,7 +183,7 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 				log.Printf("error publishing fill: %v", err)
 				continue
 			}
-			log.Printf("fill published: order_id=%d fill_qty=%.2f price=%.4f", exec.OrderID, fillQty, price)
+			log.Printf("fill published: execution_service_id=%d fill_qty=%.2f price=%.4f", exec.ExecutionServiceID, fillQty, price)
 		}
 	}
 }

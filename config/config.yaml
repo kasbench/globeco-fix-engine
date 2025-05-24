@@ -10,7 +10,7 @@ Kafka:
 
 Postgres:
   Host: globeco-fix-engine-postgresql
-  Port: 5437
+  Port: 5432
   User: postgres
   Password: ""
   DBName: postgres
