@@ -69,19 +69,19 @@ func TestCalculateFillQuantity(t *testing.T) {
 func TestFillStatusTransitions(t *testing.T) {
 	// repo := &mockRepo{} // not used in this test
 	exec := &repository.Execution{
-		ID:              1,
-		OrderID:         1,
-		IsOpen:          true,
-		ExecutionStatus: "WORK",
-		TradeType:       "BUY",
-		Destination:     "DEST",
-		SecurityID:      "SECID123",
-		Ticker:          "AAPL",
-		QuantityOrdered: 100,
-		QuantityFilled:  0,
-		NumberOfFills:   0,
-		TotalAmount:     0,
-		Version:         1,
+		ID:                 1,
+		ExecutionServiceID: 1,
+		IsOpen:             true,
+		ExecutionStatus:    "WORK",
+		TradeType:          "BUY",
+		Destination:        "DEST",
+		SecurityID:         "SECID123",
+		Ticker:             "AAPL",
+		QuantityOrdered:    100,
+		QuantityFilled:     0,
+		NumberOfFills:      0,
+		TotalAmount:        0,
+		Version:            1,
 	}
 
 	// Simulate a partial fill

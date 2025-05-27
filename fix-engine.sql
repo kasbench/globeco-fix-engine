@@ -9,7 +9,7 @@
 
 -- object: postgres | type: DATABASE --
 -- DROP DATABASE IF EXISTS postgres;
--- CREATE DATABASE postgres;
+CREATE DATABASE postgres;
 -- ddl-end --
 
 
@@ -20,8 +20,8 @@ SET search_path TO pg_catalog,public;
 -- DROP TABLE IF EXISTS public.execution CASCADE;
 CREATE TABLE public.execution (
 	id serial NOT NULL,
-	order_id integer NOT NULL,
-	is_open bit NOT NULL DEFAULT 1::BIT,
+	execution_service_id integer NOT NULL,
+	is_open boolean NOT NULL DEFAULT true,
 	execution_status varchar(20) NOT NULL,
 	trade_type varchar(10) NOT NULL,
 	destination varchar(20) NOT NULL,
@@ -36,11 +36,12 @@ CREATE TABLE public.execution (
 	next_fill_timestamp timestamptz,
 	number_of_fills smallint NOT NULL DEFAULT 0,
 	total_amount decimal(18,8) NOT NULL DEFAULT 0,
+	trade_service_execution_id integer,
 	version integer NOT NULL DEFAULT 1,
 	CONSTRAINT execution_pk PRIMARY KEY (id)
 );
 -- ddl-end --
--- ALTER TABLE public.execution OWNER TO postgres;
+ALTER TABLE public.execution OWNER TO postgres;
 -- ddl-end --
 
 -- object: execution_order_id_ndx | type: INDEX --
@@ -48,7 +49,7 @@ CREATE TABLE public.execution (
 CREATE UNIQUE INDEX execution_order_id_ndx ON public.execution
 USING btree
 (
-	order_id
+	execution_service_id
 );
 -- ddl-end --
 

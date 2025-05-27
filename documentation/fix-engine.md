@@ -4,8 +4,8 @@
 | Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
 | --- | --- | :---: | :---: | :---: | :---: | --- | --- |
 | id | serial | &#10003; |  |  | &#10003; |  |  |
-| order_id | integer |  |  |  | &#10003; |  |  |
-| is_open | bit |  |  |  | &#10003; | 1::BIT |  |
+| execution_service_id | integer |  |  |  | &#10003; |  |  |
+| is_open | boolean |  |  |  | &#10003; | true |  |
 | execution_status | varchar(20) |  |  |  | &#10003; |  |  |
 | trade_type | varchar(10) |  |  |  | &#10003; |  |  |
 | destination | varchar(20) |  |  |  | &#10003; |  |  |
@@ -20,6 +20,7 @@
 | next_fill_timestamp | timestamptz |  |  |  |  |  |  |
 | number_of_fills | smallint |  |  |  | &#10003; | 0 |  |
 | total_amount | decimal(18,8) |  |  |  | &#10003; | 0 |  |
+| trade_service_execution_id | integer |  |  |  |  |  |  |
 | version | integer |  |  |  | &#10003; | 1 |  |
 
 #### Constraints
@@ -30,11 +31,11 @@
 #### Indexes
 | Name | Type | Column(s) | Expression(s) | Predicate | Description |
 |  --- | --- | --- | --- | --- | --- |
-| execution_order_id_ndx | btree | order_id |  |  |  |
+| execution_order_id_ndx | btree | execution_service_id |  |  |  |
 | execution_next_fill_ndx | btree | next_fill_timestamp |  |  |  |
 
 ---
 
-Generated at _2025-05-21T17:36:09_ by **pgModeler 1.2.0-beta1**
+Generated at _2025-05-24T15:41:22_ by **pgModeler 1.2.0-beta1**
 [PostgreSQL Database Modeler - pgmodeler.io ](https://pgmodeler.io)
 Copyright © 2006 - 2025 Raphael Araújo e Silva 

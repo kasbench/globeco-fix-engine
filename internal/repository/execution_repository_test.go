@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -10,25 +11,41 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func setupTestDBWithContainer(t *testing.T) (*sqlx.DB, func()) {
 	ctx := context.Background()
-	container, err := postgres.RunContainer(ctx,
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("testuser"),
-		postgres.WithPassword("testpass"),
-	)
+	req := testcontainers.ContainerRequest{
+		Image:        "postgres:15-alpine",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_USER":     "testuser",
+			"POSTGRES_PASSWORD": "testpass",
+			"POSTGRES_DB":       "testdb",
+		},
+		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(60 * time.Second),
+	}
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
 	}
 
-	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
+	host, err := container.Host(ctx)
 	if err != nil {
 		container.Terminate(ctx)
-		t.Fatalf("failed to get connection string: %v", err)
+		t.Fatalf("failed to get container host: %v", err)
 	}
+	port, err := container.MappedPort(ctx, "5432/tcp")
+	if err != nil {
+		container.Terminate(ctx)
+		t.Fatalf("failed to get mapped port: %v", err)
+	}
+	dsn := fmt.Sprintf("host=%s port=%s user=testuser password=testpass dbname=testdb sslmode=disable", host, port.Port())
 
 	// Retry loop for connecting to DB
 	var db *sqlx.DB
@@ -70,23 +87,23 @@ func TestExecutionRepository_CreateAndGetByID(t *testing.T) {
 	repo := NewExecutionRepository(db)
 	ctx := context.Background()
 	exec := &Execution{
-		OrderID:           12345,
-		IsOpen:            true,
-		ExecutionStatus:   "WORK",
-		TradeType:         "BUY",
-		Destination:       "DEST",
-		SecurityID:        "SECID123",
-		Ticker:            "AAPL",
-		QuantityOrdered:   100,
-		LimitPrice:        sql.NullFloat64{Float64: 150.0, Valid: true},
-		ReceivedTimestamp: time.Now().UTC(),
-		SentTimestamp:     time.Now().UTC(),
-		LastFillTimestamp: sql.NullTime{Valid: false},
-		QuantityFilled:    0,
-		NextFillTimestamp: sql.NullTime{Valid: false},
-		NumberOfFills:     0,
-		TotalAmount:       0,
-		Version:           1,
+		ExecutionServiceID: 12345,
+		IsOpen:             true,
+		ExecutionStatus:    "WORK",
+		TradeType:          "BUY",
+		Destination:        "DEST",
+		SecurityID:         "SECID123",
+		Ticker:             "AAPL",
+		QuantityOrdered:    100,
+		LimitPrice:         sql.NullFloat64{Float64: 150.0, Valid: true},
+		ReceivedTimestamp:  time.Now().UTC(),
+		SentTimestamp:      time.Now().UTC(),
+		LastFillTimestamp:  sql.NullTime{Valid: false},
+		QuantityFilled:     0,
+		NextFillTimestamp:  sql.NullTime{Valid: false},
+		NumberOfFills:      0,
+		TotalAmount:        0,
+		Version:            1,
 	}
 	err := repo.Create(ctx, exec)
 	assert.NoError(t, err)
@@ -94,6 +111,6 @@ func TestExecutionRepository_CreateAndGetByID(t *testing.T) {
 
 	fetched, err := repo.GetByID(ctx, exec.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, exec.OrderID, fetched.OrderID)
+	assert.Equal(t, exec.ExecutionServiceID, fetched.ExecutionServiceID)
 	assert.Equal(t, exec.Ticker, fetched.Ticker)
 }

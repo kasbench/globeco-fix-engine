@@ -10,24 +10,25 @@ import (
 
 // Execution represents a row in the execution table.
 type Execution struct {
-	ID                int             `db:"id"`
-	OrderID           int             `db:"order_id"`
-	IsOpen            bool            `db:"is_open"`
-	ExecutionStatus   string          `db:"execution_status"`
-	TradeType         string          `db:"trade_type"`
-	Destination       string          `db:"destination"`
-	SecurityID        string          `db:"security_id"`
-	Ticker            string          `db:"ticker"`
-	QuantityOrdered   float64         `db:"quantity_ordered"`
-	LimitPrice        sql.NullFloat64 `db:"limit_price"`
-	ReceivedTimestamp time.Time       `db:"received_timestamp"`
-	SentTimestamp     time.Time       `db:"sent_timestamp"`
-	LastFillTimestamp sql.NullTime    `db:"last_fill_timestamp"`
-	QuantityFilled    float64         `db:"quantity_filled"`
-	NextFillTimestamp sql.NullTime    `db:"next_fill_timestamp"`
-	NumberOfFills     int16           `db:"number_of_fills"`
-	TotalAmount       float64         `db:"total_amount"`
-	Version           int             `db:"version"`
+	ID                      int             `db:"id"`
+	ExecutionServiceID      int             `db:"execution_service_id"`
+	IsOpen                  bool            `db:"is_open"`
+	ExecutionStatus         string          `db:"execution_status"`
+	TradeType               string          `db:"trade_type"`
+	Destination             string          `db:"destination"`
+	SecurityID              string          `db:"security_id"`
+	Ticker                  string          `db:"ticker"`
+	QuantityOrdered         float64         `db:"quantity_ordered"`
+	LimitPrice              sql.NullFloat64 `db:"limit_price"`
+	ReceivedTimestamp       time.Time       `db:"received_timestamp"`
+	SentTimestamp           time.Time       `db:"sent_timestamp"`
+	LastFillTimestamp       sql.NullTime    `db:"last_fill_timestamp"`
+	QuantityFilled          float64         `db:"quantity_filled"`
+	NextFillTimestamp       sql.NullTime    `db:"next_fill_timestamp"`
+	NumberOfFills           int16           `db:"number_of_fills"`
+	TotalAmount             float64         `db:"total_amount"`
+	TradeServiceExecutionID sql.NullInt64   `db:"trade_service_execution_id"`
+	Version                 int             `db:"version"`
 }
 
 // ExecutionRepository defines methods for interacting with the execution table.
@@ -49,13 +50,13 @@ func NewExecutionRepository(db *sqlx.DB) ExecutionRepository {
 
 func (r *executionRepository) Create(ctx context.Context, exec *Execution) error {
 	query := `INSERT INTO execution (
-		order_id, is_open, execution_status, trade_type, destination, security_id, ticker,
+		execution_service_id, is_open, execution_status, trade_type, destination, security_id, ticker,
 		quantity_ordered, limit_price, received_timestamp, sent_timestamp, last_fill_timestamp,
-		quantity_filled, next_fill_timestamp, number_of_fills, total_amount, version
+		quantity_filled, next_fill_timestamp, number_of_fills, total_amount, trade_service_execution_id, version
 	) VALUES (
-		:order_id, :is_open, :execution_status, :trade_type, :destination, :security_id, :ticker,
+		:execution_service_id, :is_open, :execution_status, :trade_type, :destination, :security_id, :ticker,
 		:quantity_ordered, :limit_price, :received_timestamp, :sent_timestamp, :last_fill_timestamp,
-		:quantity_filled, :next_fill_timestamp, :number_of_fills, :total_amount, :version
+		:quantity_filled, :next_fill_timestamp, :number_of_fills, :total_amount, :trade_service_execution_id, :version
 	) RETURNING id`
 	rows, err := r.db.NamedQueryContext(ctx, query, exec)
 	if err != nil {
@@ -111,6 +112,7 @@ func (r *executionRepository) PollNextForFill(ctx context.Context) (*Execution, 
 
 func (r *executionRepository) Update(ctx context.Context, exec *Execution) error {
 	query := `UPDATE execution SET
+		execution_service_id = :execution_service_id,
 		is_open = :is_open,
 		execution_status = :execution_status,
 		trade_type = :trade_type,
@@ -126,6 +128,7 @@ func (r *executionRepository) Update(ctx context.Context, exec *Execution) error
 		next_fill_timestamp = :next_fill_timestamp,
 		number_of_fills = :number_of_fills,
 		total_amount = :total_amount,
+		trade_service_execution_id = :trade_service_execution_id,
 		version = :version
 	WHERE id = :id`
 	_, err := r.db.NamedExecContext(ctx, query, exec)
