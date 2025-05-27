@@ -34,7 +34,7 @@ func (c *PricingServiceClient) GetPrice(ctx context.Context, ticker string) (flo
 		return 0, fmt.Errorf("pricing service returned status %d", resp.StatusCode)
 	}
 	var data struct {
-		Price float64 `json:"price"`
+		Price float64 `json:"close"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return 0, err

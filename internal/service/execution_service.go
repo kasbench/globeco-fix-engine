@@ -137,6 +137,7 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 
 			// Price check
 			price, err := s.PricingClient.GetPrice(ctx, exec.Ticker)
+			log.Printf("price received: price=%.4f", price)
 			if err != nil {
 				log.Printf("error getting price: %v", err)
 				continue
