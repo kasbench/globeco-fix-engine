@@ -69,6 +69,14 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 		}
 
 		now := time.Now().UTC()
+		var limitPricePtr *float64
+		if postDTO.LimitPrice != nil {
+			if *postDTO.LimitPrice > -0.0001 && *postDTO.LimitPrice < 0.0001 {
+				limitPricePtr = nil
+			} else {
+				limitPricePtr = postDTO.LimitPrice
+			}
+		}
 		exec := &repository.Execution{
 			ExecutionServiceID: postDTO.ID, // This should be the order ID from the message if present
 			IsOpen:             true,
@@ -78,7 +86,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 			SecurityID:         postDTO.SecurityID,
 			Ticker:             ticker,
 			QuantityOrdered:    postDTO.QuantityOrdered,
-			LimitPrice:         sqlNullFloat64(postDTO.LimitPrice),
+			LimitPrice:         sqlNullFloat64(limitPricePtr),
 			ReceivedTimestamp:  postDTO.ReceivedTimestamp.Time(),
 			SentTimestamp:      postDTO.SentTimestamp.Time(),
 			LastFillTimestamp:  sqlNullTime(nil),
