@@ -70,7 +70,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 
 		now := time.Now().UTC()
 		exec := &repository.Execution{
-			ExecutionServiceID: postDTO.ExecutionServiceID, // This should be the order ID from the message if present
+			ExecutionServiceID: postDTO.ID, // This should be the order ID from the message if present
 			IsOpen:             true,
 			ExecutionStatus:    "WORK",
 			TradeType:          postDTO.TradeType,
