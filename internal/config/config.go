@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/spf13/viper"
 )
 
@@ -16,10 +17,10 @@ type Config struct {
 }
 
 type KafkaConfig struct {
-	Brokers        []string
-	OrdersTopic    string
-	FillsTopic     string
-	ConsumerGroup  string
+	Brokers       []string
+	OrdersTopic   string
+	FillsTopic    string
+	ConsumerGroup string
 }
 
 type PostgresConfig struct {
@@ -53,7 +54,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("Kafka.FillsTopic", "fills")
 	viper.SetDefault("Kafka.ConsumerGroup", "fix_engine")
 	viper.SetDefault("Postgres.Host", "globeco-fix-engine-postgresql")
-	viper.SetDefault("Postgres.Port", 5437)
+	viper.SetDefault("Postgres.Port", 5432)
 	viper.SetDefault("Postgres.User", "postgres")
 	viper.SetDefault("Postgres.Password", "")
 	viper.SetDefault("Postgres.DBName", "postgres")
@@ -78,4 +79,4 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &cfg, nil
-} 
+}
