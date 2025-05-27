@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -31,13 +32,23 @@ func (c *PricingServiceClient) GetPrice(ctx context.Context, ticker string) (flo
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		var bodyBytes []byte
+		bodyBytes, _ = io.ReadAll(resp.Body)
+		log.Printf("PricingServiceClient.GetPrice: non-200 response %d, body: %s", resp.StatusCode, string(bodyBytes))
 		return 0, fmt.Errorf("pricing service returned status %d", resp.StatusCode)
 	}
 	var data struct {
-		Price float64 `json:"close"`
+		ID     int     `json:"id"`
+		Ticker string  `json:"ticker"`
+		Date   string  `json:"date"`
+		Open   float64 `json:"open"`
+		Close  float64 `json:"close"`
+		High   float64 `json:"high"`
+		Low    float64 `json:"low"`
+		Volume int     `json:"volume"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return 0, err
 	}
-	return data.Price, nil
+	return data.Close, nil
 }
