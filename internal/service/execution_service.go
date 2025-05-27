@@ -157,6 +157,11 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 				fillQty = 0
 			}
 
+			// Cap fillQty to quantityRemaining
+			if fillQty > quantityRemaining {
+				fillQty = quantityRemaining
+			}
+
 			// Update execution
 			exec.QuantityFilled += fillQty
 			exec.TotalAmount += fillQty * price
