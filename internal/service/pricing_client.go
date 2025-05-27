@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/kasbench/globeco-fix-engine/internal/config"
@@ -19,6 +20,7 @@ func NewPricingServiceClient(cfg config.ServiceConfig) *PricingServiceClient {
 
 func (c *PricingServiceClient) GetPrice(ctx context.Context, ticker string) (float64, error) {
 	url := fmt.Sprintf("http://%s:%d/api/v1/pricing/%s", c.cfg.Host, c.cfg.Port, ticker)
+	log.Printf("PricingServiceClient.GetPrice: GET %s (ticker=%s)", url, ticker)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, err
