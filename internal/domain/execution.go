@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"time"
-
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
 )
 
@@ -23,9 +21,9 @@ type ExecutionDTO struct {
 	Ticker                  string     `json:"ticker"`
 	QuantityOrdered         float64    `json:"quantity"`
 	LimitPrice              *float64   `json:"limitPrice,omitempty"`
-	ReceivedTimestamp       time.Time  `json:"receivedTimestamp"`
-	SentTimestamp           time.Time  `json:"sentTimestamp"`
-	LastFillTimestamp       *time.Time `json:"lastFilledTimestamp,omitempty"`
+	ReceivedTimestamp       EpochTime  `json:"receivedTimestamp"`
+	SentTimestamp           EpochTime  `json:"sentTimestamp"`
+	LastFillTimestamp       *EpochTime `json:"lastFilledTimestamp,omitempty"`
 	QuantityFilled          float64    `json:"quantityFilled"`
 	AveragePrice            *float64   `json:"averagePrice,omitempty"`
 	NumberOfFills           int16      `json:"numberOfFills"`
@@ -52,9 +50,10 @@ func MapExecutionToDTO(exec *Execution) *ExecutionDTO {
 	if exec.LimitPrice.Valid {
 		limitPrice = &exec.LimitPrice.Float64
 	}
-	var lastFill *time.Time
+	var lastFill *EpochTime
 	if exec.LastFillTimestamp.Valid {
-		lastFill = &exec.LastFillTimestamp.Time
+		t := EpochTimeFromTime(exec.LastFillTimestamp.Time)
+		lastFill = &t
 	}
 	var avgPrice *float64
 	if exec.QuantityFilled > 0 {
@@ -73,8 +72,8 @@ func MapExecutionToDTO(exec *Execution) *ExecutionDTO {
 		Ticker:             exec.Ticker,
 		QuantityOrdered:    exec.QuantityOrdered,
 		LimitPrice:         limitPrice,
-		ReceivedTimestamp:  exec.ReceivedTimestamp,
-		SentTimestamp:      exec.SentTimestamp,
+		ReceivedTimestamp:  EpochTimeFromTime(exec.ReceivedTimestamp),
+		SentTimestamp:      EpochTimeFromTime(exec.SentTimestamp),
 		LastFillTimestamp:  lastFill,
 		QuantityFilled:     exec.QuantityFilled,
 		AveragePrice:       avgPrice,

@@ -55,6 +55,7 @@ GlobeCo FIX Engine is a Go microservice that ingests trade orders from Kafka, pr
 - **Testing:** Unit, integration, and Kafka tests with testcontainers
 - **Security:** Input validation, CORS, environment-based secrets
 - **Containerization:** Multi-arch Dockerfile, Kubernetes manifests, CI/CD
+- **Timestamps:** All timestamps in API and Kafka messages are encoded as `float64` seconds since epoch (e.g., `1748345329.233793461`), not ISO8601 strings.
 
 ## API Documentation
 - **OpenAPI schema:** [GET /openapi.json](http://localhost:8080/openapi.json)
@@ -72,6 +73,19 @@ GlobeCo FIX Engine is a Go microservice that ingests trade orders from Kafka, pr
 | GET    | /swagger-ui/              | Swagger UI                 |
 
 See Swagger UI for full schema and try-it-out.
+
+### Timestamp Format
+All timestamp fields in API and Kafka JSON messages are encoded as `float64` seconds since the Unix epoch (UTC). Example:
+
+```json
+{
+  "receivedTimestamp": 1748345329.233793461,
+  "sentTimestamp": 1748345329.247809878,
+  "lastFilledTimestamp": 1748345329.300000000
+}
+```
+
+This applies to all timestamp fields in both REST API responses and Kafka messages. Do **not** use ISO8601 or RFC3339 strings.
 
 ## Configuration
 - Uses [Viper](https://github.com/spf13/viper) for config loading
