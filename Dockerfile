@@ -11,6 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=$(go env GOARCH) go build -o /out/globeco-fi
 FROM --platform=$TARGETPLATFORM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /
 COPY --from=builder /out/globeco-fix-engine /globeco-fix-engine
+COPY --from=builder /src/migrations /migrations
 EXPOSE 8080
 USER nonroot
 ENTRYPOINT ["/globeco-fix-engine"] 
