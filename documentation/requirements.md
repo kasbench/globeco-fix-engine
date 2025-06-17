@@ -55,7 +55,7 @@ The owner of all database objects is `postgres`.
 
 ## Entity Relationship Diagram
 
-<img src="./images/execution-service.png">
+<img src="./images/fix-engine.png">
 
 
 ## Data dictionary 
