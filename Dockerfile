@@ -12,6 +12,6 @@ FROM --platform=$TARGETPLATFORM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /
 COPY --from=builder /out/globeco-fix-engine /globeco-fix-engine
 COPY --from=builder /src/migrations /migrations
-EXPOSE 8080
+EXPOSE 8085
 USER nonroot
 ENTRYPOINT ["/globeco-fix-engine"] 

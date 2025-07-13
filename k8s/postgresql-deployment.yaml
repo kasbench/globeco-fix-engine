@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: globeco-fix-engine-postgresql-headless
+  namespace: globeco
+spec:
+  clusterIP: None
+  selector:
+    app: globeco-fix-engine-postgresql
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: globeco-fix-engine-postgresql
+  namespace: globeco
+spec:
+  serviceName: globeco-fix-engine-postgresql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: globeco-fix-engine-postgresql
+  template:
+    metadata:
+      labels:
+        app: globeco-fix-engine-postgresql
+    spec:
+      initContainers:
+        - name: init-postgres-data
+          image: busybox:1.35
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /var/lib/postgresql/data/pgdata
+              chown -R 999:999 /var/lib/postgresql/data/pgdata
+              chmod 700 /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgredb-storage
+              mountPath: /var/lib/postgresql/data
+      containers:
+        - name: globeco-fix-engine-postgresql
+          image: postgres:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: "trust"
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
+          args:
+            - "-c"
+            - "listen_addresses=0.0.0.0"
+          volumeMounts:
+            - name: postgredb-storage
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgredb-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: local-storage
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: globeco-fix-engine-postgresql
+  namespace: globeco
+spec:
+  selector:
+    app: globeco-fix-engine-postgresql
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP 
