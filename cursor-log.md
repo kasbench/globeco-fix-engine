@@ -21,3 +21,5 @@
 - Served Swagger UI at /swagger-ui/ using CDN assets, loading the OpenAPI spec.
 - Updated README with API documentation endpoints.
 
+[2024-06-10] Instrumented the microservice 'globeco-fix-engine' to send metrics and traces to the OpenTelemetry collector, following the GlobeCo standard as described in @GO_OTEL_CONFIGURATION_GUIDE.md and referencing @OTEL_CONFIGURATION_GUIDE.md for collector URLs and ports. Replaced custom tracing middleware with otelhttp, and initialized both trace and metric providers with OTLP gRPC exporters.
+

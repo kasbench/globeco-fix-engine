@@ -20,7 +20,7 @@ import (
 	"github.com/kasbench/globeco-fix-engine/internal/middleware"
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
 	"github.com/kasbench/globeco-fix-engine/internal/service"
-	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -45,6 +45,17 @@ func main() {
 	}
 	defer logger.Sync()
 	logger.Info("FIX Engine starting up", zap.String("env", cfg.AppEnv))
+
+	// Initialize OpenTelemetry (tracing and metrics)
+	otelShutdown, err := config.InitOTel(ctx)
+	if err != nil {
+		log.Fatalf("failed to initialize OpenTelemetry: %v", err)
+	}
+	defer func() {
+		if err := otelShutdown(context.Background()); err != nil {
+			log.Printf("error shutting down OpenTelemetry: %v", err)
+		}
+	}()
 
 	// Run database migrations
 	if err := config.RunMigrations(cfg.Postgres); err != nil {
@@ -108,9 +119,8 @@ func main() {
 	// Add logging middleware
 	r.Use(middleware.LoggingMiddleware(logger))
 
-	// Add tracing middleware (using global tracer for now)
-	tracer := otel.Tracer("globeco-fix-engine")
-	r.Use(middleware.TracingMiddleware(tracer))
+	// Add OpenTelemetry HTTP middleware for automatic tracing and metrics
+	r.Use(otelhttp.NewMiddleware("globeco-fix-engine"))
 
 	// Register API routes
 	execAPI := api.NewExecutionAPI(repo)

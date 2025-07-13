@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -21,17 +20,6 @@ func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 				zap.Duration("duration", dur),
 				zap.String("remote", r.RemoteAddr),
 			)
-		})
-	}
-}
-
-// TracingMiddleware adds OpenTelemetry tracing to each request.
-func TracingMiddleware(tracer trace.Tracer) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, span := tracer.Start(r.Context(), r.Method+" "+r.URL.Path)
-			defer span.End()
-			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

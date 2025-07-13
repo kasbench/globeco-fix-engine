@@ -2,38 +2,65 @@ package config
 
 import (
 	"context"
-	"log"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
-// InitTracer sets up OpenTelemetry tracing with a stdout exporter (for development).
-// Returns a shutdown function to flush and close the tracer provider.
-func InitTracer(serviceName string) (func(context.Context) error, error) {
-	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+// InitOTel sets up OpenTelemetry tracing and metrics with OTLP gRPC exporters.
+// Returns a shutdown function to flush and close the providers.
+func InitOTel(ctx context.Context) (func(context.Context) error, error) {
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String("globeco-fix-engine"),
+			semconv.ServiceVersionKey.String("1.0.0"),
+			semconv.ServiceNamespaceKey.String("globeco"),
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	rsrc := resource.NewWithAttributes(
-		semconv.SchemaURL,
-		semconv.ServiceName(serviceName),
+	// Traces exporter
+	traceExp, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint("otel-collector-collector.monitoring.svc.cluster.local:4317"),
+		otlptracegrpc.WithInsecure(),
 	)
-
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
-		trace.WithResource(rsrc),
-	)
-	otel.SetTracerProvider(tp)
-
-	shutdown := func(ctx context.Context) error {
-		return tp.Shutdown(ctx)
+	if err != nil {
+		return nil, err
 	}
+	tracerProvider := trace.NewTracerProvider(
+		trace.WithBatcher(traceExp),
+		trace.WithResource(res),
+	)
+	otel.SetTracerProvider(tracerProvider)
 
-	log.Println("OpenTelemetry tracing initialized (stdout exporter)")
-	return shutdown, nil
+	// Metrics exporter
+	metricExp, err := otlpmetricgrpc.New(ctx,
+		otlpmetricgrpc.WithEndpoint("otel-collector-collector.monitoring.svc.cluster.local:4317"),
+		otlpmetricgrpc.WithInsecure(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	meterProvider := metric.NewMeterProvider(
+		metric.WithReader(metric.NewPeriodicReader(metricExp)),
+		metric.WithResource(res),
+	)
+	otel.SetMeterProvider(meterProvider)
+
+	// Return shutdown function
+	return func(ctx context.Context) error {
+		err1 := tracerProvider.Shutdown(ctx)
+		err2 := meterProvider.Shutdown(ctx)
+		if err1 != nil {
+			return err1
+		}
+		return err2
+	}, nil
 }
