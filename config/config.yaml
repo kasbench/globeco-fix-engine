@@ -3,7 +3,7 @@ HTTPPort: 8085
 
 Kafka:
   Brokers:
-    - globeco-execution-service-kafka:9093
+    - globeco-execution-service-kafka:9092
   OrdersTopic: orders
   FillsTopic: fills
   ConsumerGroup: fix_engine

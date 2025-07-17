@@ -49,7 +49,7 @@ func LoadConfig() (*Config, error) {
 	// Set default values
 	viper.SetDefault("AppEnv", "development")
 	viper.SetDefault("HTTPPort", 8085)
-	viper.SetDefault("Kafka.Brokers", []string{"globeco-execution-service-kafka:9093"})
+	viper.SetDefault("Kafka.Brokers", []string{"globeco-execution-service-kafka:9092"})
 	viper.SetDefault("Kafka.OrdersTopic", "orders")
 	viper.SetDefault("Kafka.FillsTopic", "fills")
 	viper.SetDefault("Kafka.ConsumerGroup", "fix_engine")
