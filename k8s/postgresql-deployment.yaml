@@ -57,15 +57,27 @@ spec:
           volumeMounts:
             - name: postgredb-storage
               mountPath: /var/lib/postgresql/data
-  volumeClaimTemplates:
-    - metadata:
-        name: postgredb-storage
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        storageClassName: local-storage
-        resources:
-          requests:
-            storage: 10Gi
+      volumes:
+        - name: postgredb-storage
+          persistentVolumeClaim:
+            claimName: fix-engine-postgres-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fix-engine-postgres-pvc
+  namespace: globeco
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: fix-engine-postgres
+      type: local
 ---
 apiVersion: v1
 kind: Service
