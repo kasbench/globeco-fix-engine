@@ -14,6 +14,7 @@ type Config struct {
 	Postgres    PostgresConfig
 	SecuritySvc ServiceConfig
 	PricingSvc  ServiceConfig
+	OTEL        OTELConfig
 }
 
 type KafkaConfig struct {
@@ -37,6 +38,16 @@ type ServiceConfig struct {
 	Port int
 }
 
+type OTELConfig struct {
+	TraceEndpoint      string
+	MetricEndpoint     string
+	Insecure           bool
+	ServiceName        string
+	ServiceVersion     string
+	ServiceNamespace   string
+	ResourceAttributes string
+}
+
 // LoadConfig loads configuration from environment variables and config files.
 func LoadConfig() (*Config, error) {
 	viper.SetConfigName("config")
@@ -45,6 +56,15 @@ func LoadConfig() (*Config, error) {
 	viper.AddConfigPath(".")
 
 	viper.AutomaticEnv()
+
+	// Explicitly bind environment variables for nested structures
+	viper.BindEnv("OTEL.TraceEndpoint", "OTEL_TRACEENDPOINT")
+	viper.BindEnv("OTEL.MetricEndpoint", "OTEL_METRICENDPOINT")
+	viper.BindEnv("OTEL.Insecure", "OTEL_INSECURE")
+	viper.BindEnv("OTEL.ServiceName", "OTEL_SERVICE_NAME")
+	viper.BindEnv("OTEL.ServiceVersion", "OTEL_SERVICE_VERSION")
+	viper.BindEnv("OTEL.ServiceNamespace", "OTEL_SERVICE_NAMESPACE")
+	viper.BindEnv("OTEL.ResourceAttributes", "OTEL_RESOURCE_ATTRIBUTES")
 
 	// Set default values
 	viper.SetDefault("AppEnv", "development")
@@ -63,6 +83,13 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("SecuritySvc.Port", 8000)
 	viper.SetDefault("PricingSvc.Host", "globeco-pricing-service")
 	viper.SetDefault("PricingSvc.Port", 8083)
+	viper.SetDefault("OTEL.TraceEndpoint", "otel-collector-collector.monitoring.svc.cluster.local:4317")
+	viper.SetDefault("OTEL.MetricEndpoint", "otel-collector-collector.monitoring.svc.cluster.local:4317")
+	viper.SetDefault("OTEL.Insecure", true)
+	viper.SetDefault("OTEL.ServiceName", "globeco-fix-engine")
+	viper.SetDefault("OTEL.ServiceVersion", "1.0.0")
+	viper.SetDefault("OTEL.ServiceNamespace", "globeco")
+	viper.SetDefault("OTEL.ResourceAttributes", "")
 
 	// Read config file if present
 	err := viper.ReadInConfig()

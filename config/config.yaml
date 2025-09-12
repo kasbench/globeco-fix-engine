@@ -23,3 +23,12 @@ SecuritySvc:
 PricingSvc:
   Host: globeco-pricing-service
   Port: 8083 
+
+OTEL:
+  TraceEndpoint: otel-collector-collector.monitoring.svc.cluster.local:4317
+  MetricEndpoint: otel-collector-collector.monitoring.svc.cluster.local:4317
+  Insecure: true
+  ServiceName: globeco-fix-engine
+  ServiceVersion: "1.0.0"
+  ServiceNamespace: globeco
+  ResourceAttributes: ""

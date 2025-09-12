@@ -47,7 +47,15 @@ func main() {
 	logger.Info("FIX Engine starting up", zap.String("env", cfg.AppEnv))
 
 	// Initialize OpenTelemetry (tracing and metrics)
-	otelShutdown, err := config.InitOTel(ctx)
+	logger.Info("Initializing OpenTelemetry",
+		zap.String("trace_endpoint", cfg.OTEL.TraceEndpoint),
+		zap.String("metric_endpoint", cfg.OTEL.MetricEndpoint),
+		zap.String("service_name", cfg.OTEL.ServiceName),
+		zap.String("service_namespace", cfg.OTEL.ServiceNamespace),
+		zap.String("resource_attributes", cfg.OTEL.ResourceAttributes),
+		zap.Bool("insecure", cfg.OTEL.Insecure),
+	)
+	otelShutdown, err := config.InitOTel(ctx, cfg)
 	if err != nil {
 		log.Fatalf("failed to initialize OpenTelemetry: %v", err)
 	}
@@ -113,14 +121,14 @@ func main() {
 	// Set up chi router
 	r := chi.NewRouter()
 
-	// Add CORS middleware (should be first)
+	// Add OpenTelemetry HTTP middleware first for automatic tracing and metrics
+	r.Use(otelhttp.NewMiddleware("globeco-fix-engine"))
+
+	// Add CORS middleware
 	r.Use(middleware.CORSMiddleware)
 
 	// Add logging middleware
 	r.Use(middleware.LoggingMiddleware(logger))
-
-	// Add OpenTelemetry HTTP middleware for automatic tracing and metrics
-	r.Use(otelhttp.NewMiddleware("globeco-fix-engine"))
 
 	// Register API routes
 	execAPI := api.NewExecutionAPI(repo)
