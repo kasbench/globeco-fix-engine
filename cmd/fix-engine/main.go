@@ -39,12 +39,12 @@ func main() {
 	}
 
 	// Initialize logger
-	logger, err := config.NewLogger(cfg.AppEnv)
+	logger, err := config.NewLogger(cfg.AppEnv, cfg.LogLevel)
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
 	defer logger.Sync()
-	logger.Info("FIX Engine starting up", zap.String("env", cfg.AppEnv))
+	logger.Info("FIX Engine starting up", zap.String("env", cfg.AppEnv), zap.String("logLevel", cfg.LogLevel))
 
 	// Initialize OpenTelemetry (tracing and metrics)
 	logger.Info("Initializing OpenTelemetry",

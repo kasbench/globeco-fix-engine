@@ -10,6 +10,7 @@ import (
 type Config struct {
 	AppEnv      string
 	HTTPPort    int
+	LogLevel    string
 	Kafka       KafkaConfig
 	Postgres    PostgresConfig
 	SecuritySvc ServiceConfig
@@ -57,6 +58,9 @@ func LoadConfig() (*Config, error) {
 
 	viper.AutomaticEnv()
 
+	// Bind environment variables
+	viper.BindEnv("LogLevel", "LOG_LEVEL")
+
 	// Explicitly bind environment variables for nested structures
 	viper.BindEnv("OTEL.TraceEndpoint", "OTEL_TRACEENDPOINT")
 	viper.BindEnv("OTEL.MetricEndpoint", "OTEL_METRICENDPOINT")
@@ -69,6 +73,7 @@ func LoadConfig() (*Config, error) {
 	// Set default values
 	viper.SetDefault("AppEnv", "development")
 	viper.SetDefault("HTTPPort", 8085)
+	viper.SetDefault("LogLevel", "info")
 	viper.SetDefault("Kafka.Brokers", []string{"globeco-execution-service-kafka:9092"})
 	viper.SetDefault("Kafka.OrdersTopic", "orders")
 	viper.SetDefault("Kafka.FillsTopic", "fills")

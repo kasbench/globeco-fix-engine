@@ -59,6 +59,10 @@ spec:
             - name: OTEL_SERVICE_NAMESPACE
               value: "globeco"
             
+            # Log level configuration
+            - name: LOG_LEVEL
+              value: "info"
+            
             # Inject Kubernetes metadata as resource attributes for k8sattributes processor
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: >-

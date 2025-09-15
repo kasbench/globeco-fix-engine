@@ -1,5 +1,6 @@
 AppEnv: development
 HTTPPort: 8085
+LogLevel: info
 
 Kafka:
   Brokers:
