@@ -8,8 +8,23 @@ spec:
   selector:
     app: globeco-fix-engine-postgresql
   ports:
-    - port: 5432
+    - protocol: TCP
+      port: 5432
       targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: globeco-fix-engine-postgresql
+  namespace: globeco
+spec:
+  selector:
+    app: globeco-fix-engine-postgresql
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -30,16 +45,20 @@ spec:
       initContainers:
         - name: init-postgres-data
           image: busybox:1.35
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
           command:
             - /bin/sh
             - -c
             - |
-              mkdir -p /var/lib/postgresql/data/pgdata
-              chown -R 999:999 /var/lib/postgresql/data/pgdata
-              chmod 700 /var/lib/postgresql/data/pgdata
+              mkdir -p /mnt/postgres-data/pgdata
+              chown -R 999:999 /mnt/postgres-data
+              chmod 755 /mnt/postgres-data
+              chmod 700 /mnt/postgres-data/pgdata
           volumeMounts:
-            - name: postgredb-storage
-              mountPath: /var/lib/postgresql/data
+            - name: globeco-fix-engine-postgresdb-storage
+              mountPath: /mnt/postgres-data
       containers:
         - name: globeco-fix-engine-postgresql
           image: postgres:latest
@@ -50,45 +69,23 @@ spec:
             - name: POSTGRES_HOST_AUTH_METHOD
               value: "trust"
             - name: PGDATA
-              value: "/var/lib/postgresql/data/pgdata"
+              value: "/mnt/postgres-data/pgdata"
           args:
             - "-c"
             - "listen_addresses=0.0.0.0"
           volumeMounts:
-            - name: postgredb-storage
-              mountPath: /var/lib/postgresql/data
-      volumes:
-        - name: postgredb-storage
-          persistentVolumeClaim:
-            claimName: fix-engine-postgres-pvc
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: fix-engine-postgres-pvc
-  namespace: globeco
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: local-storage
-  resources:
-    requests:
-      storage: 10Gi
-  selector:
-    matchLabels:
-      app: fix-engine-postgres
-      type: local
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: globeco-fix-engine-postgresql
-  namespace: globeco
-spec:
-  selector:
-    app: globeco-fix-engine-postgresql
-  ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
-  type: ClusterIP 
+            - name: globeco-fix-engine-postgresdb-storage
+              mountPath: /mnt/postgres-data
+  volumeClaimTemplates:
+    - metadata:
+        name: globeco-fix-engine-postgresdb-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-storage
+        selector:
+          matchLabels:
+            app: fix-engine-postgres
+            type: local
+        resources:
+          requests:
+            storage: 10Gi 
