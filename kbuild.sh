@@ -17,6 +17,7 @@ docker buildx create --name multiarch-builder --use 2>/dev/null || docker buildx
 docker buildx build \
   --platform ${PLATFORMS} \
   -t ${IMAGE_NAME}:${TAG} \
+  -t ${IMAGE_NAME}:latest \
   --push \
   .
 
