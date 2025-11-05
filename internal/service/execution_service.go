@@ -88,7 +88,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 			QuantityOrdered:    postDTO.QuantityOrdered,
 			LimitPrice:         sqlNullFloat64(limitPricePtr),
 			ReceivedTimestamp:  postDTO.ReceivedTimestamp.Time(),
-			SentTimestamp:      postDTO.SentTimestamp.Time(),
+			SentTimestamp:      now, // Set to current time when processing the order
 			LastFillTimestamp:  sqlNullTime(nil),
 			QuantityFilled:     0,
 			NextFillTimestamp:  sqlNullTime(&now),
