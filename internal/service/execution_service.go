@@ -123,7 +123,7 @@ func sqlNullTime(t *time.Time) sql.NullTime {
 // StartFillProcessingLoop polls the database for eligible executions and processes fills.
 // Uses FOR UPDATE SKIP LOCKED for concurrency control. Publishes fills to the fills topic.
 func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(5 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {

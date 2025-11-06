@@ -97,13 +97,7 @@ func (r *executionRepository) PollNextForFill(ctx context.Context) (*Execution, 
 	  AND is_open
 	FOR UPDATE SKIP LOCKED
 	LIMIT 1`
-	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	err = tx.GetContext(ctx, &exec, query)
+	err := r.db.GetContext(ctx, &exec, query)
 	if err != nil {
 		return nil, err
 	}
