@@ -9,19 +9,21 @@ import (
 	"net/http"
 
 	"github.com/kasbench/globeco-fix-engine/internal/config"
+	"go.uber.org/zap"
 )
 
 type PricingServiceClient struct {
-	cfg config.ServiceConfig
+	cfg    config.ServiceConfig
+	logger *zap.Logger
 }
 
-func NewPricingServiceClient(cfg config.ServiceConfig) *PricingServiceClient {
-	return &PricingServiceClient{cfg: cfg}
+func NewPricingServiceClient(cfg config.ServiceConfig, logger *zap.Logger) *PricingServiceClient {
+	return &PricingServiceClient{cfg: cfg, logger: logger}
 }
 
 func (c *PricingServiceClient) GetPrice(ctx context.Context, ticker string) (float64, error) {
 	url := fmt.Sprintf("http://%s:%d/api/v1/price/%s", c.cfg.Host, c.cfg.Port, ticker)
-	log.Printf("PricingServiceClient.GetPrice: GET %s (ticker=%s)", url, ticker)
+	c.logger.Debug("PricingServiceClient.GetPrice", zap.String("url", url), zap.String("ticker", ticker))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, err

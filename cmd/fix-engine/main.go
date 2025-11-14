@@ -92,7 +92,7 @@ func main() {
 
 	// Set up external service clients
 	securityClient := service.NewSecurityServiceClient(cfg.SecuritySvc)
-	pricingClient := service.NewPricingServiceClient(cfg.PricingSvc)
+	pricingClient := service.NewPricingServiceClient(cfg.PricingSvc, logger)
 
 	// Set up ExecutionService
 	execService := service.NewExecutionService(
@@ -102,6 +102,7 @@ func main() {
 		fillsProducer,
 		securityClient,
 		pricingClient,
+		logger,
 	)
 
 	// Start order intake and fill processing loops in background goroutines
@@ -122,7 +123,17 @@ func main() {
 	r := chi.NewRouter()
 
 	// Add OpenTelemetry HTTP middleware first for automatic tracing and metrics
-	r.Use(otelhttp.NewMiddleware("globeco-fix-engine"))
+	// Skip instrumentation for health and metrics endpoints to avoid noise
+	r.Use(func(next http.Handler) http.Handler {
+		otelHandler := otelhttp.NewMiddleware("globeco-fix-engine")(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/healthz" || r.URL.Path == "/metrics" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			otelHandler.ServeHTTP(w, r)
+		})
+	})
 
 	// Add CORS middleware
 	r.Use(middleware.CORSMiddleware)
@@ -136,7 +147,6 @@ func main() {
 
 	// Serve OpenAPI spec
 	r.Get("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		http.ServeFile(w, r, "documentation/fix-engine-openapi.json")
 	})
 
@@ -149,6 +159,7 @@ func main() {
 		}
 		if r.URL.Path == "/swagger-ui/index.html" {
 			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -174,12 +185,13 @@ func main() {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
-	// Register metrics and health endpoints
-	r.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		config.RegisterMetricsHandler(http.DefaultServeMux)
-		http.DefaultServeMux.ServeHTTP(w, req)
-	}))
+	// Register metrics endpoint
+	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		http.DefaultServeMux.ServeHTTP(w, r)
+	})
+	config.RegisterMetricsHandler(http.DefaultServeMux)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})

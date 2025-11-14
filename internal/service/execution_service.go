@@ -12,6 +12,7 @@ import (
 	"github.com/kasbench/globeco-fix-engine/internal/domain"
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
 	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 )
 
 // ExecutionService wires together the repository, Kafka, and external service clients.
@@ -22,6 +23,7 @@ type ExecutionService struct {
 	FillsProducer  *kafka.Writer
 	SecurityClient *SecurityServiceClient
 	PricingClient  *PricingServiceClient
+	Logger         *zap.Logger
 }
 
 // NewExecutionService constructs a new ExecutionService.
@@ -32,6 +34,7 @@ func NewExecutionService(
 	fillsProducer *kafka.Writer,
 	securityClient *SecurityServiceClient,
 	pricingClient *PricingServiceClient,
+	logger *zap.Logger,
 ) *ExecutionService {
 	return &ExecutionService{
 		Repo:           repo,
@@ -40,6 +43,7 @@ func NewExecutionService(
 		FillsProducer:  fillsProducer,
 		SecurityClient: securityClient,
 		PricingClient:  pricingClient,
+		Logger:         logger,
 	}
 }
 
@@ -102,7 +106,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 			continue
 		}
 		// Kafka-go commits automatically when using ReadMessage
-		log.Printf("order ingested: order_id=%d ticker=%s", exec.ExecutionServiceID, exec.Ticker)
+		s.Logger.Debug("order ingested", zap.Int("order_id", exec.ExecutionServiceID), zap.String("ticker", exec.Ticker))
 	}
 }
 
@@ -145,7 +149,7 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 
 			// Price check
 			price, err := s.PricingClient.GetPrice(ctx, exec.Ticker)
-			log.Printf("price received: price=%.4f", price)
+			s.Logger.Debug("price received", zap.Float64("price", price))
 			if err != nil {
 				log.Printf("error getting price: %v", err)
 				continue
@@ -197,7 +201,10 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 				log.Printf("error publishing fill: %v", err)
 				continue
 			}
-			log.Printf("fill published: execution_service_id=%d fill_qty=%.2f price=%.4f", exec.ExecutionServiceID, fillQty, price)
+			s.Logger.Debug("fill published",
+				zap.Int("execution_service_id", exec.ExecutionServiceID),
+				zap.Float64("fill_qty", fillQty),
+				zap.Float64("price", price))
 		}
 	}
 }

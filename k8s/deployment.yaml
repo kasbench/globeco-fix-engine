@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: globeco-fix-engine
-          image: kasbench/globeco-fix-engine:1.0.2
+          image: kasbench/globeco-fix-engine:1.0.6
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8085

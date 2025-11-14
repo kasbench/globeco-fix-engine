@@ -23,3 +23,9 @@
 
 [2024-06-10] Instrumented the microservice 'globeco-fix-engine' to send metrics and traces to the OpenTelemetry collector, following the GlobeCo standard as described in @GO_OTEL_CONFIGURATION_GUIDE.md and referencing @OTEL_CONFIGURATION_GUIDE.md for collector URLs and ports. Replaced custom tracing middleware with otelhttp, and initialized both trace and metric providers with OTLP gRPC exporters.
 
+
+# Request: Change order ingestion log to debug level
+- Updated internal/service/execution_service.go to use zap.Logger instead of standard log package for the "order ingested" message.
+- Added Logger field to ExecutionService struct and updated NewExecutionService constructor to accept a logger parameter.
+- Changed the log entry at line 105 from log.Printf to s.Logger.Debug so it only appears when LogLevel is set to "debug" in config.yaml.
+- Updated cmd/fix-engine/main.go to pass the logger instance to NewExecutionService.

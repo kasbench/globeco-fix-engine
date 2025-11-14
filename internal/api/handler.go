@@ -55,9 +55,16 @@ func (h *ExecutionAPI) RegisterRoutes(r chi.Router) {
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"failed to encode response"}`))
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	w.Write(data)
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
