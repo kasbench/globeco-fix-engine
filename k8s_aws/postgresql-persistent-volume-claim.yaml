@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fix-engine-postgres-pvc
+  namespace: globeco
+  labels:
+    app: globeco-fix-engine-postgresql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-gp3
+  resources:
+    requests:
+      storage: 10Gi
