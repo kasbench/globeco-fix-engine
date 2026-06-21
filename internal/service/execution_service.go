@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/kasbench/globeco-fix-engine/internal/domain"
+	"github.com/kasbench/globeco-fix-engine/internal/metrics"
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ type ExecutionService struct {
 	SecurityClient *SecurityServiceClient
 	PricingClient  *PricingServiceClient
 	Logger         *zap.Logger
+	Metrics        *metrics.ConsumerMetrics
 }
 
 // NewExecutionService constructs a new ExecutionService.
@@ -35,6 +37,7 @@ func NewExecutionService(
 	securityClient *SecurityServiceClient,
 	pricingClient *PricingServiceClient,
 	logger *zap.Logger,
+	m *metrics.ConsumerMetrics,
 ) *ExecutionService {
 	return &ExecutionService{
 		Repo:           repo,
@@ -44,6 +47,7 @@ func NewExecutionService(
 		SecurityClient: securityClient,
 		PricingClient:  pricingClient,
 		Logger:         logger,
+		Metrics:        m,
 	}
 }
 
@@ -51,23 +55,60 @@ func NewExecutionService(
 // Uses the Security Service client to look up tickers and applies all default field rules.
 func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 	for {
+		// Capture poll start time for idle/poll duration measurement
+		pollStart := time.Now()
+
 		m, err := s.OrdersConsumer.ReadMessage(ctx)
+
+		// Calculate poll duration (monotonic via time.Since)
+		pollDuration := time.Since(pollStart).Seconds()
+
 		if err != nil {
 			if ctx.Err() != nil {
-				return // context cancelled
+				// Context cancelled — exit with NO metric observations (Property 9)
+				return
+			}
+			// Non-cancellation error — record poll error metrics
+			if s.Metrics != nil {
+				s.Metrics.RecordPollError(ctx, pollDuration)
 			}
 			log.Printf("error reading Kafka message: %v", err)
 			continue
 		}
 
+		// Successful read — record poll success metrics
+		if s.Metrics != nil {
+			s.Metrics.RecordPollSuccess(ctx, pollDuration, m.Topic, m.Partition)
+		}
+
+		// Capture processing start time
+		processingStart := time.Now()
+
+		// Helper to compute metrics on processing failure
+		recordFailure := func() {
+			processingDuration := time.Since(processingStart).Seconds()
+			completionTime := time.Now()
+			var latencyPtr *float64
+			if creationTime, ok := metrics.ResolveMessageCreationTime(m, m.Value); ok {
+				if latency, ok := metrics.CalculateLatency(creationTime, completionTime); ok {
+					latencyPtr = &latency
+				}
+			}
+			if s.Metrics != nil {
+				s.Metrics.RecordProcessingFailure(ctx, processingDuration, latencyPtr, m.Topic, m.Partition)
+			}
+		}
+
 		var postDTO domain.ExecutionDTO
 		if err := json.Unmarshal(m.Value, &postDTO); err != nil {
+			recordFailure()
 			log.Printf("error unmarshalling order: %v", err)
 			continue
 		}
 
 		ticker, err := s.SecurityClient.GetTickerBySecurityID(ctx, postDTO.SecurityID)
 		if err != nil {
+			recordFailure()
 			log.Printf("error looking up ticker: %v", err)
 			continue
 		}
@@ -102,9 +143,24 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 		}
 
 		if err := s.Repo.Create(ctx, exec); err != nil {
+			recordFailure()
 			log.Printf("error saving execution: %v", err)
 			continue
 		}
+
+		// Success — record processing success metrics
+		processingDuration := time.Since(processingStart).Seconds()
+		completionTime := time.Now()
+		var latencyPtr *float64
+		if creationTime, ok := metrics.ResolveMessageCreationTime(m, m.Value); ok {
+			if latency, ok := metrics.CalculateLatency(creationTime, completionTime); ok {
+				latencyPtr = &latency
+			}
+		}
+		if s.Metrics != nil {
+			s.Metrics.RecordProcessingSuccess(ctx, processingDuration, latencyPtr, m.Topic, m.Partition)
+		}
+
 		// Kafka-go commits automatically when using ReadMessage
 		s.Logger.Debug("order ingested", zap.Int("order_id", exec.ExecutionServiceID), zap.String("ticker", exec.Ticker))
 	}

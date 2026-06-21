@@ -6,14 +6,14 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
 
 ## Tasks
 
-- [ ] 1. Add dependencies and create metrics package structure
-  - [ ] 1.1 Add new Go dependencies
+- [x] 1. Add dependencies and create metrics package structure
+  - [x] 1.1 Add new Go dependencies
     - Run `go get go.opentelemetry.io/otel/exporters/prometheus` to add the OTel Prometheus bridge exporter
     - Run `go get github.com/leanovate/gopter` to add the property-based testing library (test dependency)
     - Run `go mod tidy` to clean up
     - _Requirements: 11.6_
 
-  - [ ] 1.2 Create `internal/metrics/consumer_metrics.go` with ConsumerMetrics struct and constructor
+  - [x] 1.2 Create `internal/metrics/consumer_metrics.go` with ConsumerMetrics struct and constructor
     - Define the `ConsumerMetrics` struct with all eight OTel instruments (six Float64Counters and two Float64Histograms) and pre-computed common attributes
     - Implement `NewConsumerMetrics(meter metric.Meter, consumerGroup string) (*ConsumerMetrics, error)` that creates all instruments with exact metric names: `kafka_consumer_messages_processed_total`, `kafka_consumer_messages_failed_total`, `kafka_consumer_processing_seconds_total`, `kafka_consumer_idle_seconds_total`, `kafka_consumer_records_polled_total`, `kafka_consumer_poll_seconds_total`, `kafka_consumer_processing_duration_seconds`, `kafka_consumer_message_latency_seconds`
     - Set explicit histogram bucket boundaries per design: processing duration (0.005 to 60) and message latency (0.010 to 600)
@@ -21,7 +21,7 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
     - Pre-compute `commonAttrs` with `service=globeco-fix-engine` and `consumer_group` (fallback to `"unknown"` if empty)
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.2, 2.7_
 
-  - [ ] 1.3 Implement recording methods on ConsumerMetrics
+  - [x] 1.3 Implement recording methods on ConsumerMetrics
     - Implement `RecordPollSuccess(ctx, pollDuration, topic, partition)` — increments `records_polled_total` by 1, adds pollDuration to `poll_seconds_total` and `idle_seconds_total`, with topic/partition labels
     - Implement `RecordPollError(ctx, pollDuration)` — adds pollDuration to `poll_seconds_total` and `idle_seconds_total` without incrementing records polled
     - Implement `RecordProcessingSuccess(ctx, processingDuration, latency, topic, partition)` — increments `messages_processed_total`, adds processingDuration to `processing_seconds_total`, records histogram observations with `result=success`
@@ -30,7 +30,7 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
     - Use `strconv.Itoa` for partition label, fallback to `"unknown"` for invalid partition
     - _Requirements: 2.3, 2.4, 2.5, 2.6, 2.8, 3.1, 3.2, 4.1, 4.6, 5.1, 5.2, 6.1, 6.3, 7.1, 7.2, 7.5, 8.1, 8.2, 9.1, 9.2, 10.1, 10.2, 10.3, 12.1, 12.5, 12.6_
 
-  - [ ] 1.4 Create `internal/metrics/creation_time.go` with message creation time resolution
+  - [x] 1.4 Create `internal/metrics/creation_time.go` with message creation time resolution
     - Implement `ResolveMessageCreationTime(msg kafka.Message, payloadJSON []byte) (time.Time, bool)` following priority: (a) `created_at` Kafka header → (b) `createdAt`/`created_at` payload field → (c) `msg.Time`
     - For headers: parse as Unix epoch millis (int string), Unix epoch seconds (decimal), or RFC 3339
     - For payload fields: parse numeric as Unix epoch millis, strings as RFC 3339
@@ -38,8 +38,8 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
     - Implement `CalculateLatency(creationTime, completionTime time.Time) (float64, bool)` — compute difference in seconds, clamp negative < 1s to 0, reject negative >= 1s
     - _Requirements: 8.3, 8.4, 8.5, 8.6, 8.7, 13.2_
 
-- [ ] 2. Modify OTel initialization and wire into service
-  - [ ] 2.1 Modify `internal/config/otel.go` to add Prometheus exporter reader
+- [x] 2. Modify OTel initialization and wire into service
+  - [x] 2.1 Modify `internal/config/otel.go` to add Prometheus exporter reader
     - Import `go.opentelemetry.io/otel/exporters/prometheus`
     - Create a Prometheus exporter via `prometheus.New()` which acts as an `metric.Reader`
     - Add the Prometheus exporter as a second reader on the `MeterProvider` using `metric.WithReader(promExporter)`
@@ -47,12 +47,12 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
     - The Prometheus exporter auto-registers with `prometheus.DefaultRegisterer`, making OTel instruments visible via `promhttp.Handler()`
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
-  - [ ] 2.2 Add `Metrics` field to `ExecutionService` and update constructor
+  - [x] 2.2 Add `Metrics` field to `ExecutionService` and update constructor
     - Add `Metrics *metrics.ConsumerMetrics` field to the `ExecutionService` struct in `internal/service/execution_service.go`
     - Add corresponding parameter to `NewExecutionService` constructor
     - _Requirements: 1.5, 12.4_
 
-  - [ ] 2.3 Instrument `StartOrderIntakeLoop` with metric recording
+  - [x] 2.3 Instrument `StartOrderIntakeLoop` with metric recording
     - Capture `time.Now()` before `ReadMessage` to measure poll/idle duration
     - On context cancellation from `ReadMessage`: exit loop with no metric observations (Property 9)
     - On non-cancellation error from `ReadMessage`: call `RecordPollError` with elapsed duration, then continue
@@ -65,14 +65,14 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
     - Clamp non-positive durations to 0
     - _Requirements: 3.1, 3.2, 3.4, 4.1, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 5.4, 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 8.1, 8.2, 9.1, 9.2, 9.3, 10.1, 10.2, 10.3, 10.4, 12.5, 13.1, 13.3, 13.4, 14.1, 14.2, 14.3, 14.4, 14.5_
 
-  - [ ] 2.4 Wire `ConsumerMetrics` into `main.go`
+  - [x] 2.4 Wire `ConsumerMetrics` into `main.go`
     - Import `internal/metrics` package
     - After `InitOTel` returns successfully, obtain a `Meter` from `otel.GetMeterProvider().Meter("globeco-fix-engine")`
     - Call `metrics.NewConsumerMetrics(meter, cfg.Kafka.ConsumerGroup)` — fatal on error
     - Pass the `ConsumerMetrics` instance to `NewExecutionService`
     - _Requirements: 1.1, 1.5_
 
-- [ ] 3. Checkpoint - Ensure build compiles and basic tests pass
+- [x] 3. Checkpoint - Ensure build compiles and basic tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Property-based tests for correctness properties
@@ -147,7 +147,7 @@ Add standardized Kafka consumer metrics instrumentation to the GlobeCo FIX Engin
     - Verify HTTP 200 with correct Content-Type
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
-- [ ] 6. Final checkpoint - Ensure all tests pass
+- [x] 6. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

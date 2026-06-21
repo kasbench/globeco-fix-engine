@@ -17,10 +17,12 @@ import (
 	"github.com/kasbench/globeco-fix-engine/internal/api"
 	"github.com/kasbench/globeco-fix-engine/internal/config"
 	"github.com/kasbench/globeco-fix-engine/internal/kafka"
+	"github.com/kasbench/globeco-fix-engine/internal/metrics"
 	"github.com/kasbench/globeco-fix-engine/internal/middleware"
 	"github.com/kasbench/globeco-fix-engine/internal/repository"
 	"github.com/kasbench/globeco-fix-engine/internal/service"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 func main() {
@@ -65,6 +67,13 @@ func main() {
 		}
 	}()
 
+	// Create consumer metrics from OTel meter
+	meter := otel.GetMeterProvider().Meter("globeco-fix-engine")
+	consumerMetrics, err := metrics.NewConsumerMetrics(meter, cfg.Kafka.ConsumerGroup)
+	if err != nil {
+		logger.Fatal("failed to create consumer metrics", zap.Error(err))
+	}
+
 	// Run database migrations
 	if err := config.RunMigrations(cfg.Postgres); err != nil {
 		logger.Fatal("database migration failed", zap.Error(err))
@@ -103,6 +112,7 @@ func main() {
 		securityClient,
 		pricingClient,
 		logger,
+		consumerMetrics,
 	)
 
 	// Start order intake and fill processing loops in background goroutines
