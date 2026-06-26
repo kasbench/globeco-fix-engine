@@ -42,6 +42,7 @@ type ServiceConfig struct {
 type OTELConfig struct {
 	TraceEndpoint      string
 	MetricEndpoint     string
+	MetricInterval     int // Metric export interval in seconds
 	Insecure           bool
 	ServiceName        string
 	ServiceVersion     string
@@ -64,6 +65,7 @@ func LoadConfig() (*Config, error) {
 	// Explicitly bind environment variables for nested structures
 	viper.BindEnv("OTEL.TraceEndpoint", "OTEL_TRACEENDPOINT")
 	viper.BindEnv("OTEL.MetricEndpoint", "OTEL_METRICENDPOINT")
+	viper.BindEnv("OTEL.MetricInterval", "OTEL_METRICINTERVAL")
 	viper.BindEnv("OTEL.Insecure", "OTEL_INSECURE")
 	viper.BindEnv("OTEL.ServiceName", "OTEL_SERVICE_NAME")
 	viper.BindEnv("OTEL.ServiceVersion", "OTEL_SERVICE_VERSION")
@@ -90,6 +92,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("PricingSvc.Port", 8083)
 	viper.SetDefault("OTEL.TraceEndpoint", "otel-collector-collector.monitoring.svc.cluster.local:4317")
 	viper.SetDefault("OTEL.MetricEndpoint", "otel-collector-collector.monitoring.svc.cluster.local:4317")
+	viper.SetDefault("OTEL.MetricInterval", 15)
 	viper.SetDefault("OTEL.Insecure", true)
 	viper.SetDefault("OTEL.ServiceName", "globeco-fix-engine")
 	viper.SetDefault("OTEL.ServiceVersion", "1.0.0")

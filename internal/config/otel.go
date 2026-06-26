@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -81,7 +82,9 @@ func InitOTel(ctx context.Context, cfg *Config) (func(context.Context) error, er
 	}
 
 	meterProvider := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExp)),
+		metric.WithReader(metric.NewPeriodicReader(metricExp,
+			metric.WithInterval(time.Duration(cfg.OTEL.MetricInterval)*time.Second),
+		)),
 		metric.WithReader(promExporter),
 		metric.WithResource(res),
 	)
