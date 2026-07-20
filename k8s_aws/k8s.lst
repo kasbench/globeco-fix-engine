@@ -3,3 +3,4 @@ postgresql-deployment.yaml
 +30
 deployment.yaml
 service.yaml
+hpa.yaml
