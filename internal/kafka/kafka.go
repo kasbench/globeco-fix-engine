@@ -33,7 +33,7 @@ func CreateFillsTopicIfNotExists(ctx context.Context, cfg config.KafkaConfig) er
 
 	err = conn.CreateTopics(kafka.TopicConfig{
 		Topic:             cfg.FillsTopic,
-		NumPartitions:     1,
+		NumPartitions:     20,
 		ReplicationFactor: 1, // adjust for production
 	})
 	return err

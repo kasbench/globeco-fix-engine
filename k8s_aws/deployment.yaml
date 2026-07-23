@@ -19,6 +19,9 @@ spec:
         - name: wait-for-kafka
           image: busybox:1.36
           command: ['sh', '-c', 'until nc -z globeco-execution-service-kafka 9092; do echo "Waiting for Kafka..."; sleep 2; done']
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z globeco-fix-engine-postgresql 5432; do echo "Waiting for PostgreSQL..."; sleep 2; done']
       containers:
         - name: globeco-fix-engine
           image: kasbench/globeco-fix-engine:1.0.8
