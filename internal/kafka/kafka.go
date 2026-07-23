@@ -42,12 +42,13 @@ func CreateFillsTopicIfNotExists(ctx context.Context, cfg config.KafkaConfig) er
 // NewOrdersConsumer creates a Kafka reader for the orders topic.
 func NewOrdersConsumer(cfg config.KafkaConfig, groupID string) *kafka.Reader {
 	return kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  cfg.Brokers,
-		GroupID:  groupID,
-		Topic:    cfg.OrdersTopic,
-		MinBytes: 10e3, // 10KB
-		MaxBytes: 10e6, // 10MB
-		MaxWait:  500 * time.Millisecond,
+		Brokers:     cfg.Brokers,
+		GroupID:     groupID,
+		Topic:       cfg.OrdersTopic,
+		MinBytes:    10e3, // 10KB
+		MaxBytes:    10e6, // 10MB
+		MaxWait:     500 * time.Millisecond,
+		StartOffset: kafka.FirstOffset, // consume from beginning if no committed offset exists
 	})
 }
 
