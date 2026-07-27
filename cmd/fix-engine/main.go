@@ -91,13 +91,19 @@ func main() {
 	repo := repository.NewExecutionRepository(db)
 
 	// Set up Kafka
-	if err := kafka.CreateFillsTopicIfNotExists(ctx, cfg.Kafka); err != nil {
+	if err := kafka.CreateFillsTopicIfNotExists(ctx, cfg.Kafka, logger); err != nil {
 		logger.Fatal("failed to ensure fills topic exists", zap.Error(err))
 	}
-	ordersConsumer := kafka.NewOrdersConsumer(cfg.Kafka, cfg.Kafka.ConsumerGroup)
-	fillsProducer := kafka.NewFillsProducer(cfg.Kafka)
+	ordersConsumer := kafka.NewOrdersConsumer(cfg.Kafka, cfg.Kafka.ConsumerGroup, logger)
+	fillsProducer := kafka.NewFillsProducer(cfg.Kafka, logger)
 	defer ordersConsumer.Close()
 	defer fillsProducer.Close()
+	logger.Info("Kafka consumer and producer initialized successfully",
+		zap.Strings("brokers", cfg.Kafka.Brokers),
+		zap.String("orders_topic", cfg.Kafka.OrdersTopic),
+		zap.String("fills_topic", cfg.Kafka.FillsTopic),
+		zap.String("consumer_group", cfg.Kafka.ConsumerGroup),
+	)
 
 	// Set up external service clients
 	securityClient := service.NewSecurityServiceClient(cfg.SecuritySvc)
