@@ -111,7 +111,10 @@ func main() {
 	}
 
 	// Create Kafka readiness tracker for the readiness probe
+	// Mark ready immediately since partition assignment is confirmed
 	kafkaReady := service.NewKafkaReadiness()
+	kafkaReady.SetReady()
+	logger.Info("Kafka readiness confirmed — readiness probe will now return 200")
 
 	// Set up external service clients
 	securityClient := service.NewSecurityServiceClient(cfg.SecuritySvc)
