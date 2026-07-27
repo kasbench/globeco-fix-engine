@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"math/rand"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -26,6 +28,32 @@ type ExecutionService struct {
 	PricingClient  *PricingServiceClient
 	Logger         *zap.Logger
 	Metrics        *metrics.ConsumerMetrics
+	KafkaReady     *KafkaReadiness
+}
+
+// KafkaReadiness tracks whether the Kafka consumer has successfully connected and received partition assignments.
+type KafkaReadiness struct {
+	mu    sync.RWMutex
+	ready bool
+}
+
+// NewKafkaReadiness creates a new KafkaReadiness tracker.
+func NewKafkaReadiness() *KafkaReadiness {
+	return &KafkaReadiness{}
+}
+
+// SetReady marks Kafka as ready.
+func (kr *KafkaReadiness) SetReady() {
+	kr.mu.Lock()
+	defer kr.mu.Unlock()
+	kr.ready = true
+}
+
+// IsReady returns true if Kafka consumer is ready.
+func (kr *KafkaReadiness) IsReady() bool {
+	kr.mu.RLock()
+	defer kr.mu.RUnlock()
+	return kr.ready
 }
 
 // NewExecutionService constructs a new ExecutionService.
@@ -38,6 +66,7 @@ func NewExecutionService(
 	pricingClient *PricingServiceClient,
 	logger *zap.Logger,
 	m *metrics.ConsumerMetrics,
+	kafkaReady *KafkaReadiness,
 ) *ExecutionService {
 	return &ExecutionService{
 		Repo:           repo,
@@ -48,12 +77,24 @@ func NewExecutionService(
 		PricingClient:  pricingClient,
 		Logger:         logger,
 		Metrics:        m,
+		KafkaReady:     kafkaReady,
 	}
 }
 
 // StartOrderIntakeLoop consumes messages from the orders topic, maps and persists them to the database.
 // Uses the Security Service client to look up tickers and applies all default field rules.
+// Includes retry/backoff logic for rebalance errors and marks Kafka as ready on first successful read.
 func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
+	const (
+		initialBackoff = 1 * time.Second
+		maxBackoff     = 30 * time.Second
+		backoffFactor  = 2.0
+	)
+
+	currentBackoff := initialBackoff
+	consecutiveErrors := 0
+	firstMessageReceived := false
+
 	for {
 		// Capture poll start time for idle/poll duration measurement
 		pollStart := time.Now()
@@ -68,12 +109,67 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 				// Context cancelled — exit with NO metric observations (Property 9)
 				return
 			}
+
+			consecutiveErrors++
+
+			// Detect rebalance-related errors and apply backoff
+			errMsg := err.Error()
+			isRebalanceError := strings.Contains(errMsg, "rebalance") ||
+				strings.Contains(errMsg, "NotCoordinatorForConsumer") ||
+				strings.Contains(errMsg, "IllegalGeneration") ||
+				strings.Contains(errMsg, "RebalanceInProgress") ||
+				strings.Contains(errMsg, "not coordinator") ||
+				strings.Contains(errMsg, "i/o timeout")
+
+			if isRebalanceError {
+				s.Logger.Warn("Kafka consumer rebalance/coordinator error, backing off",
+					zap.Error(err),
+					zap.Duration("backoff", currentBackoff),
+					zap.Int("consecutive_errors", consecutiveErrors),
+				)
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(currentBackoff):
+				}
+
+				// Exponential backoff
+				currentBackoff = time.Duration(float64(currentBackoff) * backoffFactor)
+				if currentBackoff > maxBackoff {
+					currentBackoff = maxBackoff
+				}
+			} else {
+				// Non-rebalance error — log with structured fields but no backoff
+				s.Logger.Warn("Error reading Kafka message",
+					zap.Error(err),
+					zap.Int("consecutive_errors", consecutiveErrors),
+				)
+			}
+
 			// Non-cancellation error — record poll error metrics
 			if s.Metrics != nil {
 				s.Metrics.RecordPollError(ctx, pollDuration)
 			}
-			log.Printf("error reading Kafka message: %v", err)
 			continue
+		}
+
+		// Successful read — reset backoff and error counter
+		if consecutiveErrors > 0 {
+			s.Logger.Info("Kafka consumer recovered after errors",
+				zap.Int("previous_consecutive_errors", consecutiveErrors),
+			)
+		}
+		consecutiveErrors = 0
+		currentBackoff = initialBackoff
+
+		// Mark Kafka as ready on first successful message
+		if !firstMessageReceived {
+			firstMessageReceived = true
+			if s.KafkaReady != nil {
+				s.KafkaReady.SetReady()
+				s.Logger.Info("Kafka consumer confirmed ready — first message received successfully")
+			}
 		}
 
 		// Successful read — record poll success metrics

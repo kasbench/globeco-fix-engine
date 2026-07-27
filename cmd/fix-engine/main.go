@@ -105,6 +105,14 @@ func main() {
 		zap.String("consumer_group", cfg.Kafka.ConsumerGroup),
 	)
 
+	// Verify Kafka partition assignment before proceeding
+	if err := kafka.WaitForPartitionAssignment(ctx, ordersConsumer, logger); err != nil {
+		logger.Fatal("failed waiting for Kafka partition assignment", zap.Error(err))
+	}
+
+	// Create Kafka readiness tracker for the readiness probe
+	kafkaReady := service.NewKafkaReadiness()
+
 	// Set up external service clients
 	securityClient := service.NewSecurityServiceClient(cfg.SecuritySvc)
 	pricingClient := service.NewPricingServiceClient(cfg.PricingSvc, logger)
@@ -119,6 +127,7 @@ func main() {
 		pricingClient,
 		logger,
 		consumerMetrics,
+		kafkaReady,
 	)
 
 	// Start order intake and fill processing loops in background goroutines
@@ -143,7 +152,7 @@ func main() {
 	r.Use(func(next http.Handler) http.Handler {
 		otelHandler := otelhttp.NewMiddleware("globeco-fix-engine")(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/healthz" || r.URL.Path == "/metrics" {
+			if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" || r.URL.Path == "/metrics" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -210,6 +219,18 @@ func main() {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
+	})
+
+	// Readiness probe — only returns 200 once Kafka consumer has received its first message
+	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		if kafkaReady.IsReady() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ready"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("not ready: waiting for Kafka consumer"))
+		}
 	})
 
 	addr := ":" + fmt.Sprint(cfg.HTTPPort)

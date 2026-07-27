@@ -97,7 +97,7 @@ spec:
             failureThreshold: 10
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: 8085
             periodSeconds: 5
             timeoutSeconds: 5

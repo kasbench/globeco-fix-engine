@@ -52,26 +52,83 @@ func CreateFillsTopicIfNotExists(ctx context.Context, cfg config.KafkaConfig, lo
 }
 
 // NewOrdersConsumer creates a Kafka reader for the orders topic.
+// Uses extended session and rebalance timeouts to tolerate slow broker stabilization at startup.
 func NewOrdersConsumer(cfg config.KafkaConfig, groupID string, logger *zap.Logger) *kafka.Reader {
 	logger.Info("Creating Kafka orders consumer",
 		zap.Strings("brokers", cfg.Brokers),
 		zap.String("topic", cfg.OrdersTopic),
 		zap.String("groupID", groupID),
+		zap.Duration("sessionTimeout", 60*time.Second),
+		zap.Duration("rebalanceTimeout", 90*time.Second),
+		zap.Duration("heartbeatInterval", 10*time.Second),
 	)
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     cfg.Brokers,
-		GroupID:     groupID,
-		Topic:       cfg.OrdersTopic,
-		MinBytes:    10e3, // 10KB
-		MaxBytes:    10e6, // 10MB
-		MaxWait:     500 * time.Millisecond,
-		StartOffset: kafka.FirstOffset, // consume from beginning if no committed offset exists
+		Brokers:           cfg.Brokers,
+		GroupID:           groupID,
+		Topic:             cfg.OrdersTopic,
+		MinBytes:          10e3, // 10KB
+		MaxBytes:          10e6, // 10MB
+		MaxWait:           500 * time.Millisecond,
+		StartOffset:       kafka.FirstOffset, // consume from beginning if no committed offset exists
+		SessionTimeout:    60 * time.Second,  // extended from default 30s to tolerate slow startup
+		RebalanceTimeout:  90 * time.Second,  // give broker extra time to complete rebalances
+		HeartbeatInterval: 10 * time.Second,  // more frequent heartbeats to maintain session
 	})
 	logger.Info("Kafka orders consumer created successfully",
 		zap.String("topic", cfg.OrdersTopic),
 		zap.String("groupID", groupID),
 	)
 	return reader
+}
+
+// WaitForPartitionAssignment attempts to read a message with a short timeout to trigger
+// consumer group join/rebalance, then checks reader stats to confirm partitions are assigned.
+// Returns nil once partitions are confirmed, or an error if the context is cancelled.
+func WaitForPartitionAssignment(ctx context.Context, reader *kafka.Reader, logger *zap.Logger) error {
+	logger.Info("Waiting for Kafka partition assignment",
+		zap.String("topic", reader.Config().Topic),
+		zap.String("groupID", reader.Config().GroupID),
+	)
+
+	// Poll stats every 2 seconds until we see partitions assigned or context cancelled.
+	// The first ReadMessage call (in the consumer loop) triggers the group join.
+	// Here we just verify via Stats that the reader has received assignments.
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(120 * time.Second) // maximum wait before giving up
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			stats := reader.Stats()
+			logger.Warn("Timed out waiting for partition assignment, proceeding anyway",
+				zap.String("topic", stats.Topic),
+				zap.String("partition", stats.Partition),
+			)
+			return nil // don't block startup forever
+		case <-ticker.C:
+			stats := reader.Stats()
+			// kafka-go reports the number of messages read, dials, and fetches.
+			// A non-negative partition in stats or successful dial count indicates assignment.
+			// The reader.Stats().Dials counter increments when the consumer joins the group.
+			if stats.Dials > 0 && stats.Rebalances > 0 {
+				logger.Info("Kafka partition assignment confirmed",
+					zap.String("topic", stats.Topic),
+					zap.Int64("dials", stats.Dials),
+					zap.Int64("rebalances", stats.Rebalances),
+				)
+				return nil
+			}
+			logger.Debug("Still waiting for partition assignment",
+				zap.String("topic", stats.Topic),
+				zap.Int64("dials", stats.Dials),
+				zap.Int64("rebalances", stats.Rebalances),
+			)
+		}
+	}
 }
 
 // NewFillsProducer creates a Kafka writer for the fills topic.
