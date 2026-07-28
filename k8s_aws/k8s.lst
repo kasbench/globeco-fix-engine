@@ -5,3 +5,4 @@ deployment.yaml
 service.yaml
 hpa.yaml
 vpa.yaml
+keda.yaml
