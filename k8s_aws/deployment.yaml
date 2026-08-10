@@ -81,6 +81,11 @@ spec:
                 k8s.node.name=$(MY_NODE_NAME),
                 k8s.namespace.name=$(MY_NAMESPACE)
 
+          resizePolicy:
+            - resourceName: cpu
+              restartPolicy: NotRequired
+            - resourceName: memory
+              restartPolicy: RestartContainer
           resources:
             requests:
               cpu: 200m
