@@ -11,10 +11,16 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: globeco-fix-engine
-  minReplicaCount: 1
+  minReplicaCount: 0
   maxReplicaCount: 20
-  cooldownPeriod: 300
+  # 5 minute standard cooldown policy scaled to 4:1 time compression
+  cooldownPeriod: 75  
   pollingInterval: 15
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 75
   triggers:
     - type: kafka
       metadata:
@@ -23,4 +29,5 @@ spec:
         consumerGroup: fix_engine
         lagThreshold: "5"
         offsetResetPolicy: latest
+        scaleToZeroOnInvalidOffset: "true"
 {{- end -}}
