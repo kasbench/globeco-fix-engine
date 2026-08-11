@@ -28,6 +28,7 @@ spec:
         topic: orders
         consumerGroup: fix_engine
         lagThreshold: "5"
-        offsetResetPolicy: latest
+        activationLagThreshold: "1"
+        offsetResetPolicy: earliest
         scaleToZeroOnInvalidOffset: "true"
 {{- end -}}
