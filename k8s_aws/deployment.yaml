@@ -20,8 +20,8 @@ spec:
           image: busybox:1.36
           command: ['sh', '-c', 'until nc -z globeco-execution-service-kafka 9092; do echo "Waiting for Kafka..."; sleep 2; done']
         - name: wait-for-postgres
-          image: busybox:1.36
-          command: ['sh', '-c', 'until nc -z globeco-fix-engine-postgresql 5432; do echo "Waiting for PostgreSQL..."; sleep 2; done']
+          image: postgres:18.0
+          command: ['sh', '-c', 'until pg_isready -h globeco-fix-engine-postgresql -p 5432; do echo "Waiting for PostgreSQL..."; sleep 2; done']
         - name: kafka-stabilization-delay
           image: busybox:1.36
           command: ['sh', '-c', 'echo "Kafka is reachable. Waiting 5s for stabilization..."; sleep 5; echo "Stabilization delay complete."']
