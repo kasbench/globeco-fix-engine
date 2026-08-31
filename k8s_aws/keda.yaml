@@ -27,7 +27,7 @@ spec:
         bootstrapServers: globeco-execution-service-kafka.globeco.svc.cluster.local:9092
         topic: orders
         consumerGroup: fix_engine
-        lagThreshold: "20"
+        lagThreshold: "75"
         activationLagThreshold: "1"
         offsetResetPolicy: earliest
         scaleToZeroOnInvalidOffset: "true"
