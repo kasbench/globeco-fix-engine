@@ -11,7 +11,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: globeco-fix-engine
-  minReplicaCount: 0
+  minReplicaCount: 1
   maxReplicaCount: 20
   # 5 minute standard cooldown policy scaled to 4:1 time compression
   cooldownPeriod: 75  
@@ -27,7 +27,7 @@ spec:
         bootstrapServers: globeco-execution-service-kafka.globeco.svc.cluster.local:9092
         topic: orders
         consumerGroup: fix_engine
-        lagThreshold: "75"
+        lagThreshold: "10"
         activationLagThreshold: "1"
         offsetResetPolicy: earliest
         scaleToZeroOnInvalidOffset: "true"
