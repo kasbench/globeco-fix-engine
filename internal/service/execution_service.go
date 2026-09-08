@@ -331,7 +331,7 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 				exec.ExecutionStatus = "PART"
 			}
 			if exec.IsOpen {
-				delta := time.Duration(rand.Intn(115)+5) * time.Second // 5s to 2m
+				delta := time.Duration(rand.Intn(3)+1) * time.Second // 1-4s
 				next := now.Add(delta)
 				exec.NextFillTimestamp = sqlNullTime(&next)
 			}
