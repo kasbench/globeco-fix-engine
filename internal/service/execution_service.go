@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -95,7 +96,32 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 	consecutiveErrors := 0
 	firstMessageReceived := false
 
+	// Artificial throttle to slow down Kafka message intake. This is used to
+	// create backpressure/load for autoscaling benchmarks. Controlled by the
+	// ORDER_INTAKE_SLEEP environment variable (a Go duration string, e.g. "50ms").
+	// Defaults to 50ms. Set to "0" or "0s" to disable.
+	orderIntakeSleep := 50 * time.Millisecond
+	if v := os.Getenv("ORDER_INTAKE_SLEEP"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			orderIntakeSleep = d
+		} else {
+			s.Logger.Warn("invalid ORDER_INTAKE_SLEEP value, using default",
+				zap.String("value", v),
+				zap.Duration("default", orderIntakeSleep),
+			)
+		}
+	}
+
 	for {
+		// Throttle order intake to induce load for autoscaling benchmarks.
+		if orderIntakeSleep > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(orderIntakeSleep):
+			}
+		}
+
 		// Capture poll start time for idle/poll duration measurement
 		pollStart := time.Now()
 

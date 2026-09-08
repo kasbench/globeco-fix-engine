@@ -96,6 +96,11 @@ spec:
             # Log level configuration
             - name: LOG_LEVEL
               value: "info"
+
+            # Artificial throttle on Kafka order intake to induce load for
+            # autoscaling benchmarks (Go duration string, e.g. "50ms").
+            - name: ORDER_INTAKE_SLEEP
+              value: "50ms"
             
             # Inject Kubernetes metadata as resource attributes for k8sattributes processor
             - name: OTEL_RESOURCE_ATTRIBUTES
