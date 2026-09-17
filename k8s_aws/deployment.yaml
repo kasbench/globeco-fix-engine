@@ -6,21 +6,7 @@ metadata:
   labels:
     app: globeco-fix-engine
 spec:
-  {{- if eq .Values.autoscaler "vpa" }}
-  replicas: 2
-  {{- else if eq .Values.autoscaler "horizontal-2" }}
-  replicas: 2
-  {{- else if eq .Values.autoscaler "horizontal-3" }}
-  replicas: 3
-  {{- else if eq .Values.autoscaler "horizontal-4" }}
-  replicas: 4
-  {{- else if eq .Values.autoscaler "horizontal-5" }}
-  replicas: 5
-  {{- else if eq .Values.autoscaler "horizontal-6" }}
-  replicas: 6
-  {{- else }}
-  replicas: 1
-  {{- end }}
+  {{- include "globeco.replicas" . | nindent 2 }}
 
   # A newly-ready pod must remain ready for 10 seconds before
   # the Deployment considers it available.
@@ -125,24 +111,7 @@ spec:
               restartPolicy: NotRequired
             - resourceName: memory
               restartPolicy: RestartContainer
-          resources:
-            requests:
-              memory: "100Mi"
-              {{- if eq .Values.autoscaler "vertical-2" }}
-              cpu: "222.0m"
-              {{- else if eq .Values.autoscaler "vertical-3" }}
-              cpu: "296.0m"
-              {{- else if eq .Values.autoscaler "vertical-4" }}
-              cpu: "370.0m"
-              {{- else if eq .Values.autoscaler "vertical-5" }}
-              cpu: "444.0m"
-              {{- else if eq .Values.autoscaler "vertical-6" }}
-              cpu: "518.0m"
-              {{- else }}
-              cpu: "148m"
-              {{- end }}
-            limits:
-              memory: "6000Mi"
+          {{- include "globeco.globecoFixEngineResources" . | nindent 10 }}
           livenessProbe:
             httpGet:
               path: /healthz
