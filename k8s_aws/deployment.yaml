@@ -51,6 +51,9 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8085
+              name: http
+            - containerPort: 8086
+              name: health
           env:
             # Inject the node and pod metadata from the Downward API
             - name: MY_POD_IP
@@ -97,6 +100,15 @@ spec:
             # autoscaling benchmarks (Go duration string, e.g. "50ms").
             - name: ORDER_INTAKE_SLEEP
               value: "50ms"
+
+            # Dedicated health/probe server port (serves /healthz and /readyz).
+            - name: HEALTH_PORT
+              value: "8086"
+
+            # Fill-processing poll interval. Kept at 50ms so the pod stays stable
+            # at its requested CPU (200m); a tighter interval pegs the CPU.
+            - name: FILL_PROCESSING_INTERVAL
+              value: "50ms"
             
             # Inject Kubernetes metadata as resource attributes for k8sattributes processor
             - name: OTEL_RESOURCE_ATTRIBUTES
@@ -112,28 +124,37 @@ spec:
             - resourceName: memory
               restartPolicy: RestartContainer
           {{- include "globeco.globecoFixEngineResources" . | nindent 10 }}
+          # Liveness only checks that the process is up (dedicated health port).
+          # It must NOT depend on Kafka state, so a transient Kafka issue does
+          # not cause pod restarts.
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8085
+              port: health
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 10
+          # Readiness reflects true Kafka readiness via /readyz.
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8085
+              port: health
             periodSeconds: 5
             timeoutSeconds: 5
             failureThreshold: 10
+          # Startup gates on /readyz so that a successful startup probe means the
+          # service has confirmed Kafka partition assignment and is actively
+          # polling — the benchmark requires every service ready before it begins.
+          # failureThreshold*periodSeconds (60*5=300s) covers the worst-case
+          # Kafka partition-assignment wait.
           startupProbe:
             httpGet:
-              path: /healthz
-              port: 8085
+              path: /readyz
+              port: health
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 60
 
 {{- if eq .Values.autoscaler "vpa" }}
 ---

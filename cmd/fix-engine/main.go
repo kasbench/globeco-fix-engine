@@ -48,6 +48,43 @@ func main() {
 	defer logger.Sync()
 	logger.Info("FIX Engine starting up", zap.String("env", cfg.AppEnv), zap.String("logLevel", cfg.LogLevel))
 
+	// Kafka readiness tracker for the readiness probe. Starts NOT ready and only
+	// flips to ready once Kafka partition assignment is confirmed (below), right
+	// before the consume/fill loops start. This guarantees that once the startup
+	// probe succeeds, the service is actually able to poll Kafka.
+	kafkaReady := service.NewKafkaReadiness()
+
+	// Bring up the dedicated health/probe server FIRST, before any slow init
+	// (OTel, DB migrations, Kafka handshake). This way the kubelet probes get a
+	// real HTTP response (200 for /healthz, 503 for /readyz until ready) instead
+	// of connection-refused during startup. The health server runs on its own
+	// port and goroutine so probe latency is isolated from the API, metrics
+	// endpoint, and the hot consume/fill loops.
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		if kafkaReady.IsReady() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ready"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("not ready: waiting for Kafka partition assignment"))
+		}
+	})
+	healthAddr := ":" + fmt.Sprint(cfg.HealthPort)
+	healthServer := &http.Server{Addr: healthAddr, Handler: healthMux}
+	go func() {
+		logger.Info("Health/probe server listening", zap.String("addr", healthAddr))
+		if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("health server exited", zap.Error(err))
+		}
+	}()
+
 	// Initialize OpenTelemetry (tracing and metrics)
 	logger.Info("Initializing OpenTelemetry",
 		zap.String("trace_endpoint", cfg.OTEL.TraceEndpoint),
@@ -110,9 +147,9 @@ func main() {
 		logger.Fatal("failed waiting for Kafka partition assignment", zap.Error(err))
 	}
 
-	// Create Kafka readiness tracker for the readiness probe
-	// Mark ready immediately since partition assignment is confirmed
-	kafkaReady := service.NewKafkaReadiness()
+	// Partition assignment is confirmed — mark the service ready. From this point
+	// the readiness probe returns 200 and the consume/fill loops (started below)
+	// are guaranteed to be able to poll Kafka.
 	kafkaReady.SetReady()
 	logger.Info("Kafka readiness confirmed — readiness probe will now return 200")
 
@@ -262,6 +299,9 @@ func main() {
 	defer shutdownCancel()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("HTTP server shutdown error", zap.Error(err))
+	}
+	if err := healthServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("health server shutdown error", zap.Error(err))
 	}
 	// Stop order intake and fill processing loops and wait for them to finish
 	orderIntakeCancel()

@@ -100,17 +100,7 @@ func (s *ExecutionService) StartOrderIntakeLoop(ctx context.Context) {
 	// create backpressure/load for autoscaling benchmarks. Controlled by the
 	// ORDER_INTAKE_SLEEP environment variable (a Go duration string, e.g. "50ms").
 	// Defaults to 50ms. Set to "0" or "0s" to disable.
-	orderIntakeSleep := 50 * time.Millisecond
-	if v := os.Getenv("ORDER_INTAKE_SLEEP"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			orderIntakeSleep = d
-		} else {
-			s.Logger.Warn("invalid ORDER_INTAKE_SLEEP value, using default",
-				zap.String("value", v),
-				zap.Duration("default", orderIntakeSleep),
-			)
-		}
-	}
+	orderIntakeSleep := durationFromEnv(s.Logger, "ORDER_INTAKE_SLEEP", 50*time.Millisecond)
 
 	for {
 		// Throttle order intake to induce load for autoscaling benchmarks.
@@ -302,10 +292,42 @@ func sqlNullTime(t *time.Time) sql.NullTime {
 	return sql.NullTime{Time: *t, Valid: true}
 }
 
+// durationFromEnv reads a Go duration string from the named environment variable.
+// If the variable is unset or cannot be parsed, def is returned (a parse failure
+// is logged as a warning).
+func durationFromEnv(logger *zap.Logger, name string, def time.Duration) time.Duration {
+	v := os.Getenv(name)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		if logger != nil {
+			logger.Warn("invalid duration environment variable, using default",
+				zap.String("env", name),
+				zap.String("value", v),
+				zap.Duration("default", def),
+			)
+		}
+		return def
+	}
+	return d
+}
+
 // StartFillProcessingLoop polls the database for eligible executions and processes fills.
 // Uses FOR UPDATE SKIP LOCKED for concurrency control. Publishes fills to the fills topic.
 func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Millisecond)
+	// Fill-processing poll interval. A very tight interval (e.g. 5ms) pegs the
+	// CPU and makes the pod unstable at its requested CPU limit, which also
+	// starves the health probe handlers. Default to 50ms; override with the
+	// FILL_PROCESSING_INTERVAL environment variable (a Go duration string).
+	interval := durationFromEnv(s.Logger, "FILL_PROCESSING_INTERVAL", 50*time.Millisecond)
+	if interval <= 0 {
+		interval = 50 * time.Millisecond
+	}
+	s.Logger.Info("fill processing loop starting", zap.Duration("interval", interval))
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
