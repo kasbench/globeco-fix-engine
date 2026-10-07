@@ -140,7 +140,7 @@ spec:
               path: /readyz
               port: health
             periodSeconds: 5
-            timeoutSeconds: 5
+            timeoutSeconds: 15
             failureThreshold: 10
           # Startup gates on /readyz so that a successful startup probe means the
           # service has confirmed Kafka partition assignment and is actively
