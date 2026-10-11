@@ -391,6 +391,18 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 
 			// Publish fill to Kafka
 			dto := domain.MapExecutionToDTO(exec)
+
+			// Never publish a fill with an averagePrice of 0.00. If it is zero
+			// (or unset) at the moment of publishing, default it to 0.01 and warn.
+			if dto.AveragePrice == nil || *dto.AveragePrice == 0.00 {
+				defaultAvgPrice := 0.01
+				s.Logger.Warn("averagePrice was 0.00 at publish time; defaulting to 0.01",
+					zap.Int("execution_service_id", exec.ExecutionServiceID),
+					zap.Int("execution_id", exec.ID),
+					zap.Float64("default_average_price", defaultAvgPrice))
+				dto.AveragePrice = &defaultAvgPrice
+			}
+
 			msg, err := json.Marshal(dto)
 			if err != nil {
 				log.Printf("error marshalling fill DTO: %v", err)
