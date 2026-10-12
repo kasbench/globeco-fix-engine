@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -408,7 +409,13 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 				log.Printf("error marshalling fill DTO: %v", err)
 				continue
 			}
-			err = s.FillsProducer.WriteMessages(ctx, kafka.Message{Value: msg})
+			// Key the message by executionServiceId (the execution_id carried
+			// downstream in the fills message) so that all fills for the same
+			// execution hash to the same partition. Combined with a shared
+			// consumer group on the downstream side, this guarantees exactly
+			// one consumer processes each execution_id.
+			key := []byte(strconv.Itoa(exec.ExecutionServiceID))
+			err = s.FillsProducer.WriteMessages(ctx, kafka.Message{Key: key, Value: msg})
 			if err != nil {
 				log.Printf("error publishing fill: %v", err)
 				continue
