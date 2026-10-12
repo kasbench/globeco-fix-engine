@@ -326,7 +326,18 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 	if interval <= 0 {
 		interval = 50 * time.Millisecond
 	}
-	s.Logger.Info("fill processing loop starting", zap.Duration("interval", interval))
+
+	// Minimum time that must elapse between consecutive fills for the same
+	// ExecutionServiceId. Default to 10s; override with the
+	// FILL_MIN_INTERVAL environment variable (a Go duration string).
+	minFillInterval := durationFromEnv(s.Logger, "FILL_MIN_INTERVAL", 10*time.Second)
+	if minFillInterval < 0 {
+		minFillInterval = 10 * time.Second
+	}
+
+	s.Logger.Info("fill processing loop starting",
+		zap.Duration("interval", interval),
+		zap.Duration("min_fill_interval", minFillInterval))
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -380,8 +391,11 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 				exec.ExecutionStatus = "PART"
 			}
 			if exec.IsOpen {
-				delta := time.Duration(rand.Intn(3)+1) * time.Second // 1-4s
-				next := now.Add(delta)
+				// Enforce a minimum gap between consecutive fills for the same
+				// ExecutionServiceId, plus a small random jitter (1-4s) so that
+				// fills remain staggered rather than firing in lockstep.
+				jitter := time.Duration(rand.Intn(3)+1) * time.Second // 1-4s
+				next := now.Add(minFillInterval + jitter)
 				exec.NextFillTimestamp = sqlNullTime(&next)
 			}
 
