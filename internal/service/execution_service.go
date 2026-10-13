@@ -328,11 +328,11 @@ func (s *ExecutionService) StartFillProcessingLoop(ctx context.Context) {
 	}
 
 	// Minimum time that must elapse between consecutive fills for the same
-	// ExecutionServiceId. Default to 10s; override with the
+	// ExecutionServiceId. Default to 20s; override with the
 	// FILL_MIN_INTERVAL environment variable (a Go duration string).
-	minFillInterval := durationFromEnv(s.Logger, "FILL_MIN_INTERVAL", 10*time.Second)
+	minFillInterval := durationFromEnv(s.Logger, "FILL_MIN_INTERVAL", 20*time.Second)
 	if minFillInterval < 0 {
-		minFillInterval = 10 * time.Second
+		minFillInterval = 20 * time.Second
 	}
 
 	s.Logger.Info("fill processing loop starting",
